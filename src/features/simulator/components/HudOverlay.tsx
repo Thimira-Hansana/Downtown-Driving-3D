@@ -60,6 +60,10 @@ export function HudOverlay() {
               <strong>Shift</strong>
             </li>
             <li>
+              <span>Horn</span>
+              <strong>F</strong>
+            </li>
+            <li>
               <span>Cycle camera</span>
               <strong>C</strong>
             </li>
