@@ -40,7 +40,7 @@ export const useSimulatorStore = create<SimulatorState>((set) => ({
     throttle: 0,
   },
   gear: 'N',
-  instructionsVisible: true,
+  instructionsVisible: false,
   isReady: false,
   rpm: 900,
   setDebugInput: (payload) => set({ debugInput: payload }),

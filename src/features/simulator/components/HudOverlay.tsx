@@ -60,24 +60,27 @@ export function HudOverlay() {
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const rpm = useSimulatorStore((state) => state.rpm);
   const gear = useSimulatorStore((state) => state.gear);
-  const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const debugBlocked = useSimulatorStore((state) => state.debugBlocked);
   const debugInput = useSimulatorStore((state) => state.debugInput);
+  const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const instructionsVisible = useSimulatorStore((state) => state.instructionsVisible);
+  const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
 
   return (
     <div className="hud">
-      <div className="hud__header panel">
+      <div className="hud__header">
         <div>
           <p className="eyebrow">Metropolis Drive</p>
           <h1>3D Car Simulator</h1>
         </div>
-        <div className="status-pill">{cameraMode} camera</div>
       </div>
 
       <div className="hud__lower">
-        <div className="hud__dashboard">
-          <DialGauge accent="#3fd0ff" label="Speed" max={220} suffix="km/h" value={speedKph} />
+        <div className="hud__mini-cluster">
+          <div className="hud__micro-gauges">
+            <DialGauge accent="#3fd0ff" label="Speed" max={220} suffix="km/h" value={speedKph} />
+            <DialGauge accent="#ff5d5d" label="RPM" max={7000} suffix="rpm" value={rpm} />
+          </div>
 
           <div className="dashboard-core panel">
             <div className="dashboard-core__topline">
@@ -92,7 +95,7 @@ export function HudOverlay() {
               </div>
 
               <div className="dashboard-core__state">
-                <span>{debugBlocked ? 'traction blocked' : 'road grip stable'}</span>
+                <span>{debugBlocked ? 'road blocked' : 'road grip stable'}</span>
                 <strong>{cameraMode}</strong>
               </div>
             </div>
@@ -115,9 +118,22 @@ export function HudOverlay() {
               />
             </div>
           </div>
-
-          <DialGauge accent="#ff5d5d" label="RPM" max={7000} suffix="rpm" value={rpm} />
         </div>
+
+        <button
+          type="button"
+          className={`hud__controls-toggle panel${instructionsVisible ? ' is-active' : ''}`}
+          onClick={toggleInstructions}
+          aria-expanded={instructionsVisible}
+          aria-label={instructionsVisible ? 'Hide controls' : 'Show controls'}
+        >
+          <span className="hud__controls-toggle-icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="hud__controls-toggle-label">Controls</span>
+        </button>
 
         {instructionsVisible ? (
           <div className="hud__controls panel">
@@ -155,14 +171,12 @@ export function HudOverlay() {
                 <strong>R</strong>
               </li>
               <li>
-                <span>Hide controls</span>
-                <strong>H</strong>
+                <span>Toggle controls</span>
+                <strong>H or Button</strong>
               </li>
             </ul>
           </div>
-        ) : (
-          <div className="hud__collapsed-hint panel">Press H to show controls</div>
-        )}
+        ) : null}
       </div>
     </div>
   );

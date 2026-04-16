@@ -76,7 +76,12 @@ select {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .hud__header h1 {
@@ -109,28 +114,40 @@ select {
   align-items: flex-end;
   justify-content: space-between;
   gap: 18px;
+  width: 100%;
+}
+
+.hud__mini-cluster {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-right: auto;
+  margin-left: 4px;
+  margin-bottom: 2px;
+}
+
+.hud__micro-gauges {
+  display: grid;
+  gap: 8px;
 }
 
 .panel {
   border: 1px solid rgba(190, 228, 255, 0.14);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(5, 18, 28, 0.82), rgba(14, 32, 47, 0.72));
+  background: linear-gradient(180deg, rgba(5, 18, 28, 0.54), rgba(14, 32, 47, 0.36));
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(18px);
 }
 
 .hud__dashboard {
-  display: grid;
-  grid-template-columns: minmax(150px, 180px) minmax(280px, 360px) minmax(150px, 180px);
-  align-items: center;
-  gap: 16px;
-  align-self: flex-start;
+  display: none;
 }
 
 .dial-gauge {
-  padding: 12px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(5, 18, 28, 0.78), rgba(12, 28, 42, 0.72));
+  padding: 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(5, 18, 28, 0.54), rgba(12, 28, 42, 0.42));
+  width: 76px;
 }
 
 .dial-gauge__face {
@@ -157,7 +174,7 @@ select {
 .dial-gauge__arc {
   inset: 10%;
   border-radius: 50%;
-  border: 6px solid rgba(255, 255, 255, 0.08);
+  border: 5px solid rgba(255, 255, 255, 0.08);
   border-top-color: var(--dial-accent);
   border-right-color: var(--dial-accent);
   transform: rotate(-45deg);
@@ -217,22 +234,25 @@ select {
 .dial-gauge__readout span,
 .dial-gauge__readout em {
   color: rgba(210, 237, 255, 0.7);
-  font-size: 0.72rem;
+  font-size: 0.48rem;
   font-style: normal;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
 }
 
 .dial-gauge__readout strong {
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  font-size: 1.2rem;
   line-height: 1;
 }
 
 .dashboard-core {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 8px;
+  padding: 9px 11px;
   min-height: 100%;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(5, 18, 28, 0.46), rgba(14, 32, 47, 0.28));
+  width: min(264px, calc(100vw - 156px));
 }
 
 .dashboard-core__topline {
@@ -244,15 +264,15 @@ select {
 
 .dashboard-core__topline span {
   color: rgba(214, 238, 252, 0.74);
-  font-size: 0.74rem;
+  font-size: 0.52rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .dashboard-core__main {
   display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 16px;
+  grid-template-columns: 52px 1fr;
+  gap: 7px;
   align-items: center;
 }
 
@@ -263,13 +283,13 @@ select {
 
 .dashboard-core__gear-block span {
   color: rgba(214, 238, 252, 0.74);
-  font-size: 0.72rem;
+  font-size: 0.56rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .dashboard-core__gear {
-  font-size: clamp(3.4rem, 5vw, 4.8rem);
+  font-size: clamp(1.45rem, 2vw, 2.2rem);
   line-height: 0.9;
   font-weight: 800;
   color: #f7fbff;
@@ -280,16 +300,16 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
   text-transform: uppercase;
 }
 
 .dashboard-core__state span,
 .dashboard-core__state strong {
-  font-size: 0.76rem;
+  font-size: 0.53rem;
   letter-spacing: 0.12em;
 }
 
@@ -304,12 +324,12 @@ select {
 
 .dashboard-core__meters {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .input-meter {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .input-meter__header {
@@ -317,16 +337,16 @@ select {
   justify-content: space-between;
   gap: 12px;
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.53rem;
   letter-spacing: 0.14em;
   color: rgba(214, 238, 252, 0.84);
 }
 
 .input-meter__track {
   overflow: hidden;
-  height: 10px;
+  height: 7px;
   border-radius: 999px;
-  background: rgba(124, 160, 183, 0.18);
+  background: rgba(124, 160, 183, 0.14);
 }
 
 .input-meter__fill {
@@ -344,9 +364,58 @@ select {
 }
 
 .hud__controls,
-.hud__collapsed-hint {
+.hud__controls-toggle {
   align-self: flex-end;
+  pointer-events: auto;
+}
+
+.hud__controls {
   width: min(330px, calc(100vw - 48px));
+}
+
+.hud__controls-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(190, 228, 255, 0.16);
+  background: linear-gradient(180deg, rgba(5, 18, 28, 0.72), rgba(14, 32, 47, 0.48));
+  color: #e8f6ff;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.hud__controls-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 202, 103, 0.34);
+}
+
+.hud__controls-toggle.is-active {
+  border-color: rgba(255, 202, 103, 0.42);
+  background: linear-gradient(180deg, rgba(16, 33, 48, 0.8), rgba(14, 32, 47, 0.58));
+}
+
+.hud__controls-toggle-icon {
+  display: grid;
+  gap: 4px;
+  width: 18px;
+}
+
+.hud__controls-toggle-icon span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: #ffca67;
+  box-shadow: 0 0 12px rgba(255, 202, 103, 0.2);
+}
+
+.hud__controls-toggle-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .hud__controls {
@@ -397,12 +466,6 @@ select {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.hud__collapsed-hint {
-  padding: 14px 18px;
-  text-align: center;
-  color: rgba(233, 246, 255, 0.82);
 }
 
 .loading-screen {
@@ -464,13 +527,14 @@ select {
     align-items: stretch;
   }
 
-  .hud__dashboard {
-    grid-template-columns: 1fr;
+  .hud__mini-cluster {
     width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .hud__controls,
-  .hud__collapsed-hint {
+  .hud__controls-toggle {
     align-self: stretch;
     width: auto;
   }
@@ -486,18 +550,14 @@ select {
     padding: 14px 16px;
   }
 
-  .hud__dashboard {
-    gap: 14px;
-  }
-
   .dial-gauge {
-    max-width: 220px;
-    width: 100%;
-    justify-self: center;
+    width: 76px;
   }
 
   .dashboard-core {
-    padding: 18px;
+    width: 100%;
+    max-width: none;
+    padding: 14px;
   }
 
   .dashboard-core__main {
