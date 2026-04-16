@@ -72,6 +72,7 @@ export function useDrivingInput({
         throttle: (throttleForward ? 1 : 0) - (throttleBackward ? 1 : 0),
       };
       setDebugInput({
+        brake: snapshotRef.current.brake,
         steer: snapshotRef.current.steer,
         throttle: snapshotRef.current.throttle,
       });

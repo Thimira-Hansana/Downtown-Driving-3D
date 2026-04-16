@@ -8,6 +8,7 @@ interface SimulatorState {
   cycleCamera: () => void;
   debugBlocked: boolean;
   debugInput: {
+    brake: boolean;
     steer: number;
     throttle: number;
   };
@@ -34,6 +35,7 @@ export const useSimulatorStore = create<SimulatorState>((set) => ({
     }),
   debugBlocked: false,
   debugInput: {
+    brake: false,
     steer: 0,
     throttle: 0,
   },

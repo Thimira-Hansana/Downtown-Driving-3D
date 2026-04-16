@@ -24,13 +24,17 @@ export function AudioManager() {
   const rpm = useSimulatorStore((state) => state.rpm);
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const brakeLockRef = useRef(false);
   const crashLockRef = useRef(false);
+  const longTurnStartRef = useRef<number | null>(null);
 
   const audio = useMemo(
     () => ({
       acceleration: createLoopingAudio(ASSET_PATHS.audio.acceleration, 0),
+      brake: createOneShotAudio(ASSET_PATHS.audio.brake, 0.4),
       city: createLoopingAudio(ASSET_PATHS.audio.city, 0.18),
       crash: createOneShotAudio(ASSET_PATHS.audio.crash, 0.42),
+      drift: createLoopingAudio(ASSET_PATHS.audio.drift, 0),
       horn: createOneShotAudio(ASSET_PATHS.audio.horn, 0.46),
     }),
     [],
@@ -45,7 +49,9 @@ export function AudioManager() {
       try {
         await audio.city.play();
         await audio.acceleration.play();
+        await audio.drift.play();
         audio.acceleration.volume = 0;
+        audio.drift.volume = 0;
         setIsUnlocked(true);
       } catch {
         // Ignore autoplay denials until the next user gesture.
@@ -115,7 +121,56 @@ export function AudioManager() {
     if (audio.city.paused) {
       void audio.city.play().catch(() => {});
     }
+
+    if (audio.drift.paused) {
+      void audio.drift.play().catch(() => {});
+    }
   }, [audio, isUnlocked]);
+
+  useEffect(() => {
+    if (!isUnlocked) {
+      return;
+    }
+
+    const isHardBrake = debugInput.brake && speedKph > 18;
+
+    if (isHardBrake && !brakeLockRef.current) {
+      brakeLockRef.current = true;
+      audio.brake.currentTime = 0;
+      void audio.brake.play().catch(() => {});
+    }
+
+    if (!debugInput.brake) {
+      brakeLockRef.current = false;
+    }
+  }, [audio, debugInput.brake, isUnlocked, speedKph]);
+
+  useEffect(() => {
+    if (!isUnlocked || !isReady) {
+      return;
+    }
+
+    const steerAmount = Math.abs(debugInput.steer);
+    const driftRatio = Math.min(speedKph / 140, 1);
+    const isLongTurnCandidate = speedKph > 100 && steerAmount > 0.2;
+    const now = performance.now();
+
+    if (isLongTurnCandidate) {
+      longTurnStartRef.current ??= now;
+    } else {
+      longTurnStartRef.current = null;
+    }
+
+    const turnDuration =
+      longTurnStartRef.current == null ? 0 : Math.max(0, now - longTurnStartRef.current);
+    const sustainedTurnRatio = Math.min(Math.max((turnDuration - 900) / 300, 0), 1);
+    const shouldDrift = sustainedTurnRatio > 0;
+
+    audio.drift.volume = shouldDrift
+      ? Math.min((0.12 + driftRatio * (0.16 + steerAmount * 0.22)) * sustainedTurnRatio, 0.34)
+      : 0;
+    audio.drift.playbackRate = shouldDrift ? 0.92 + driftRatio * 0.35 : 0.9;
+  }, [audio, debugInput.steer, isReady, isUnlocked, speedKph]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -136,8 +191,10 @@ export function AudioManager() {
   useEffect(() => {
     return () => {
       audio.acceleration.pause();
+      audio.brake.pause();
       audio.city.pause();
       audio.crash.pause();
+      audio.drift.pause();
       audio.horn.pause();
     };
   }, [audio]);

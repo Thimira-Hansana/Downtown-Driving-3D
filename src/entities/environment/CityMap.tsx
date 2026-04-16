@@ -10,7 +10,7 @@ import {
 } from '../../shared/lib/scene-utils';
 
 const ROAD_BLOCKER_PATTERN =
-  /^DC_met_(?:A|B|C|SA|SB)\d+(?:\.\d+)?_.*(?:finish_line|Tower_Wrap|Metal)/i;
+  /^DC_met_(?:A|B|C|SA|SB)\d+(?:\.\d+)?_/i;
 
 export const CityMap = forwardRef<Group>(function CityMap(_, forwardedRef) {
   const groupRef = useRef<Group>(null);

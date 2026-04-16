@@ -1,4 +1,4 @@
-import { Box3, Object3D, Raycaster, Vector3 } from 'three';
+import { Box3, Intersection, Object3D, Raycaster, Vector3 } from 'three';
 
 interface VehicleDimensions {
   trackWidth: number;
@@ -16,6 +16,7 @@ export interface TerrainProbe {
 const DOWN = new Vector3(0, -1, 0);
 const MIN_DRIVABLE_SURFACE_NORMAL_Y = 0.72;
 const MAX_DRIVABLE_STEP_UP = 0.45;
+const MAX_WALL_NORMAL_Y = 0.35;
 
 export interface SurfaceHit {
   normal: Vector3;
@@ -23,18 +24,54 @@ export interface SurfaceHit {
   point: Vector3;
 }
 
-function hierarchyMatches(object: Object3D | null, pattern: RegExp) {
-  let current: Object3D | null = object;
+const worldNormal = new Vector3();
 
-  while (current) {
-    if (pattern.test(current.name)) {
-      return true;
+function toSurfaceHit(hit: Intersection<Object3D>): SurfaceHit {
+  worldNormal.copy(hit.face?.normal ?? DOWN).transformDirection(hit.object.matrixWorld);
+
+  return {
+    normal: worldNormal.clone(),
+    object: hit.object,
+    point: hit.point.clone(),
+  };
+}
+
+function selectGroundHit(
+  intersections: Array<Intersection<Object3D>>,
+  expectedGroundY?: number,
+): SurfaceHit | null {
+  let fallbackHit: SurfaceHit | null = null;
+  let bestMatch: SurfaceHit | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const intersection of intersections) {
+    const hit = toSurfaceHit(intersection);
+
+    if (hit.normal.y < MIN_DRIVABLE_SURFACE_NORMAL_Y) {
+      continue;
     }
 
-    current = current.parent;
+    if (!fallbackHit) {
+      fallbackHit = hit;
+    }
+
+    if (expectedGroundY == null) {
+      return hit;
+    }
+
+    if (hit.point.y > expectedGroundY + MAX_DRIVABLE_STEP_UP) {
+      continue;
+    }
+
+    const distance = Math.abs(hit.point.y - expectedGroundY);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = hit;
+    }
   }
 
-  return false;
+  return bestMatch ?? fallbackHit;
 }
 
 function traceGroundHit(
@@ -42,6 +79,7 @@ function traceGroundHit(
   raycaster: Raycaster,
   x: number,
   z: number,
+  expectedGroundY?: number,
 ): SurfaceHit | null {
   if (!terrain) {
     return null;
@@ -50,16 +88,7 @@ function traceGroundHit(
   raycaster.far = 1200;
   raycaster.set(new Vector3(x, 600, z), DOWN);
 
-  const hit = raycaster.intersectObject(terrain, true)[0];
-  if (!hit) {
-    return null;
-  }
-
-  return {
-    normal: hit.face?.normal?.clone() ?? new Vector3(0, 1, 0),
-    object: hit.object,
-    point: hit.point.clone(),
-  };
+  return selectGroundHit(raycaster.intersectObject(terrain, true), expectedGroundY);
 }
 
 function traceGroundY(
@@ -68,8 +97,9 @@ function traceGroundY(
   x: number,
   z: number,
   fallback: number,
+  expectedGroundY?: number,
 ) {
-  return traceGroundHit(terrain, raycaster, x, z)?.point.y ?? fallback;
+  return traceGroundHit(terrain, raycaster, x, z, expectedGroundY)?.point.y ?? fallback;
 }
 
 export function isDrivableSurface(object: Object3D | null) {
@@ -81,8 +111,9 @@ export function findGroundSurface(
   raycaster: Raycaster,
   x: number,
   z: number,
+  expectedGroundY?: number,
 ) {
-  return traceGroundHit(terrain, raycaster, x, z);
+  return traceGroundHit(terrain, raycaster, x, z, expectedGroundY);
 }
 
 export function isRoadAtPosition(
@@ -103,7 +134,7 @@ export function isRoadAtPosition(
   let drivableHits = 0;
 
   for (const [offsetX, offsetZ] of sampleOffsets) {
-    const hit = traceGroundHit(terrain, raycaster, x + offsetX, z + offsetZ);
+    const hit = traceGroundHit(terrain, raycaster, x + offsetX, z + offsetZ, currentGroundY);
 
     if (
       hit &&
@@ -130,7 +161,7 @@ function sampleForwardDistance(
 
   for (let distance = stepDistance; distance <= maxDistance; distance += stepDistance) {
     const probe = position.clone().addScaledVector(direction, distance);
-    const hit = traceGroundHit(terrain, raycaster, probe.x, probe.z);
+    const hit = traceGroundHit(terrain, raycaster, probe.x, probe.z, position.y);
 
     if (!hit || !isDrivableSurface(hit.object)) {
       break;
@@ -302,11 +333,11 @@ export function sampleTerrainUnderVehicle(
   const rightPosition = position.clone().addScaledVector(right, halfTrack);
 
   return {
-    back: traceGroundY(terrain, raycaster, backPosition.x, backPosition.z, fallback),
-    center: traceGroundY(terrain, raycaster, position.x, position.z, fallback),
-    front: traceGroundY(terrain, raycaster, frontPosition.x, frontPosition.z, fallback),
-    left: traceGroundY(terrain, raycaster, leftPosition.x, leftPosition.z, fallback),
-    right: traceGroundY(terrain, raycaster, rightPosition.x, rightPosition.z, fallback),
+    back: traceGroundY(terrain, raycaster, backPosition.x, backPosition.z, fallback, fallback),
+    center: traceGroundY(terrain, raycaster, position.x, position.z, fallback, fallback),
+    front: traceGroundY(terrain, raycaster, frontPosition.x, frontPosition.z, fallback, fallback),
+    left: traceGroundY(terrain, raycaster, leftPosition.x, leftPosition.z, fallback, fallback),
+    right: traceGroundY(terrain, raycaster, rightPosition.x, rightPosition.z, fallback, fallback),
   };
 }
 
@@ -328,7 +359,55 @@ export function isPositionDrivable(
   ];
 
   return checkpoints.every((checkpoint) => {
-    const hit = traceGroundHit(terrain, raycaster, checkpoint.x, checkpoint.z);
+    const hit = traceGroundHit(terrain, raycaster, checkpoint.x, checkpoint.z, position.y);
     return Boolean(hit && isDrivableSurface(hit.object));
   });
+}
+
+export function isPathBlocked(
+  terrain: Object3D | null,
+  raycaster: Raycaster,
+  origin: Vector3,
+  target: Vector3,
+  collisionRadius: number,
+  collisionProbeHeight: number,
+) {
+  if (!terrain) {
+    return false;
+  }
+
+  const travel = target.clone().sub(origin);
+  travel.y = 0;
+
+  const distance = travel.length();
+
+  if (distance < 0.02) {
+    return false;
+  }
+
+  const direction = travel.normalize();
+  const right = new Vector3(direction.z, 0, -direction.x);
+  const probeOffsets = [-collisionRadius, 0, collisionRadius];
+
+  for (const offset of probeOffsets) {
+    const probeOrigin = origin
+      .clone()
+      .addScaledVector(right, offset)
+      .setY(origin.y + collisionProbeHeight);
+
+    raycaster.far = distance + collisionRadius;
+    raycaster.set(probeOrigin, direction);
+
+    const intersections = raycaster.intersectObject(terrain, true);
+
+    for (const intersection of intersections) {
+      const hit = toSurfaceHit(intersection);
+
+      if (hit.normal.y <= MAX_WALL_NORMAL_Y) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }

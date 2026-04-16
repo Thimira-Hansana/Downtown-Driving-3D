@@ -8,6 +8,7 @@ import { createCameraRigState, updateCameraRig } from '../lib/camera-rig';
 import {
   findGroundSurface,
   findSpawnTransform,
+  isPathBlocked,
   isRoadAtPosition,
   sampleTerrainUnderVehicle,
 } from '../lib/terrain';
@@ -104,16 +105,29 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
     stepDriveState(motion, inputRef.current, delta, SIMULATOR_CONFIG.vehicle);
 
-    const candidateSurface = findGroundSurface(terrain, raycaster, motion.position.x, motion.position.z);
     const previousGroundY = previousPosition.y - SIMULATOR_CONFIG.vehicle.rideHeight;
+    const candidateSurface = findGroundSurface(
+      terrain,
+      raycaster,
+      motion.position.x,
+      motion.position.z,
+      previousGroundY,
+    );
     const candidateIsDrivable =
       Boolean(candidateSurface) &&
       isRoadAtPosition(terrain, raycaster, motion.position.x, motion.position.z, previousGroundY);
-    const hitBarrier = false;
+    const hitBarrier = isPathBlocked(
+      terrain,
+      raycaster,
+      previousPosition,
+      motion.position,
+      SIMULATOR_CONFIG.vehicle.collisionRadius,
+      SIMULATOR_CONFIG.vehicle.collisionProbeHeight,
+    );
 
-    setMovementBlocked(!candidateIsDrivable);
+    setMovementBlocked(!candidateIsDrivable || hitBarrier);
 
-    if (!candidateIsDrivable) {
+    if (!candidateIsDrivable || hitBarrier) {
       motion.position.copy(previousPosition);
       motion.heading = previousHeading;
       motion.speed = 0;

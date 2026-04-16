@@ -50,11 +50,6 @@ export function updateCameraRig({
     preset.localLookOffset[2],
   );
 
-  if (cameraMode === 'chase') {
-    desiredPosition.y += speedRatio * 0.5;
-    desiredPosition.z -= speedRatio * 0.7;
-  }
-
   vehicleRoot.localToWorld(desiredPosition);
   vehicleRoot.localToWorld(desiredLookAt);
 

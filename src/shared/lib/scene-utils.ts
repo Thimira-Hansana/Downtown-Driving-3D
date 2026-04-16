@@ -27,6 +27,10 @@ export function setVisibilityByNamePattern(root: Object3D, pattern: RegExp, visi
   root.traverse((node) => {
     if (pattern.test(node.name)) {
       node.visible = visible;
+
+       if (!visible && 'isMesh' in node && node.isMesh) {
+        node.raycast = () => null;
+      }
     }
   });
 }
