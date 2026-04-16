@@ -19,6 +19,17 @@ npm install
 npm run dev
 ```
 
+## GitHub Pages
+
+Push `main` to GitHub and enable `Settings > Pages > Source: GitHub Actions`.
+The included workflow will build and publish this Vite app automatically.
+
+For this repository, the site path is:
+
+```text
+https://thimira-hansana.github.io/Open-City-Driver-3D/
+```
+
 ## Controls
 
 - `W / Arrow Up`: accelerate
