@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber';
+import { AudioManager } from './AudioManager';
 import { HudOverlay } from './HudOverlay';
 import { LoadingOverlay } from './LoadingOverlay';
 import { SimulatorScene } from './SimulatorScene';
@@ -16,6 +17,7 @@ export function SimulatorShell() {
         <SimulatorScene />
       </Canvas>
 
+      <AudioManager />
       <HudOverlay />
       <LoadingOverlay />
     </main>

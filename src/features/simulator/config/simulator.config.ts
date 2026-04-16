@@ -34,10 +34,10 @@ export const SIMULATOR_CONFIG = {
   },
   camera: {
     chase: {
-      baseFov: 58,
-      followDamping: 6.4,
-      localLookOffset: [0, 1.15, 6.4] as const,
-      localPositionOffset: [0, 3.1, -9.2] as const,
+      baseFov: 56,
+      followDamping: 7.2,
+      localLookOffset: [0, 1.05, 4.9] as const,
+      localPositionOffset: [0, 2.45, -6.6] as const,
     },
     driver: {
       baseFov: 72,
