@@ -99,6 +99,17 @@ export function AudioManager() {
       return;
     }
 
+    if (gear === 'R') {
+      audio.acceleration.volume = 0;
+
+      if (!audio.acceleration.paused) {
+        audio.acceleration.pause();
+        audio.acceleration.currentTime = 0;
+      }
+
+      return;
+    }
+
     const driveRatio = Math.min(speedKph / 140, 1);
     const throttlePressure = Math.abs(debugInput.throttle);
     const accelerationVolume =
@@ -115,7 +126,7 @@ export function AudioManager() {
       audio.acceleration.pause();
       audio.acceleration.currentTime = 0;
     }
-  }, [audio, debugInput.throttle, isReady, isUnlocked, rpm, speedKph]);
+  }, [audio, debugInput.throttle, gear, isReady, isUnlocked, rpm, speedKph]);
 
   useEffect(() => {
     if (!isUnlocked) {

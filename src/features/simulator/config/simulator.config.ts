@@ -1,6 +1,7 @@
 export const CAMERA_MODES = ['chase', 'driver', 'overview'] as const;
 
 export type CameraMode = (typeof CAMERA_MODES)[number];
+export type ActiveCameraMode = CameraMode | 'reverse';
 
 export const SIMULATOR_CONFIG = {
   world: {
@@ -50,6 +51,12 @@ export const SIMULATOR_CONFIG = {
       followDamping: 4.5,
       localLookOffset: [0, 0.8, 4] as const,
       localPositionOffset: [0, 17, -15] as const,
+    },
+    reverse: {
+      baseFov: 58,
+      followDamping: 6.2,
+      localLookOffset: [0, 1.05, -2.8] as const,
+      localPositionOffset: [0, 2.15, 6.4] as const,
     },
   },
 } as const;
