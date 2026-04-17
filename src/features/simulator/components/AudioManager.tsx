@@ -20,6 +20,7 @@ function createOneShotAudio(src: string, volume: number) {
 export function AudioManager() {
   const debugBlocked = useSimulatorStore((state) => state.debugBlocked);
   const debugInput = useSimulatorStore((state) => state.debugInput);
+  const gear = useSimulatorStore((state) => state.gear);
   const isReady = useSimulatorStore((state) => state.isReady);
   const rpm = useSimulatorStore((state) => state.rpm);
   const speedKph = useSimulatorStore((state) => state.speedKph);
@@ -36,6 +37,7 @@ export function AudioManager() {
       crash: createOneShotAudio(ASSET_PATHS.audio.crash, 0.42),
       drift: createLoopingAudio(ASSET_PATHS.audio.drift, 0),
       horn: createOneShotAudio(ASSET_PATHS.audio.horn, 0.46),
+      reverseBeep: createLoopingAudio(ASSET_PATHS.audio.reverseBeep, 0.22),
     }),
     [],
   );
@@ -50,8 +52,10 @@ export function AudioManager() {
         await audio.city.play();
         await audio.acceleration.play();
         await audio.drift.play();
+        await audio.reverseBeep.play();
         audio.acceleration.volume = 0;
         audio.drift.volume = 0;
+        audio.reverseBeep.volume = 0;
         setIsUnlocked(true);
       } catch {
         // Ignore autoplay denials until the next user gesture.
@@ -128,6 +132,24 @@ export function AudioManager() {
   }, [audio, isUnlocked]);
 
   useEffect(() => {
+    if (!isUnlocked || !isReady) {
+      return;
+    }
+
+    const shouldPlayReverseBeep = gear === 'R';
+    audio.reverseBeep.volume = shouldPlayReverseBeep ? 0.22 : 0;
+
+    if (shouldPlayReverseBeep && audio.reverseBeep.paused) {
+      void audio.reverseBeep.play().catch(() => {});
+    }
+
+    if (!shouldPlayReverseBeep && !audio.reverseBeep.paused) {
+      audio.reverseBeep.pause();
+      audio.reverseBeep.currentTime = 0;
+    }
+  }, [audio, gear, isReady, isUnlocked]);
+
+  useEffect(() => {
     if (!isUnlocked) {
       return;
     }
@@ -196,6 +218,7 @@ export function AudioManager() {
       audio.crash.pause();
       audio.drift.pause();
       audio.horn.pause();
+      audio.reverseBeep.pause();
     };
   }, [audio]);
 

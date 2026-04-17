@@ -8,6 +8,7 @@ export const ASSET_PATHS = {
     crash: withBase('assets/audio/car-crash-sound.mp3'),
     drift: withBase('assets/audio/drift.mp3'),
     horn: withBase('assets/audio/double-car-horn.mp3'),
+    reverseBeep: withBase('assets/audio/drive-in-reverse-beep-alert-54774.mp3'),
   },
   car: withBase('assets/car/free_porsche_911_carrera_4s.glb'),
   map: withBase('assets/map/nfs_undercover_ds_-_metropolis.glb'),
