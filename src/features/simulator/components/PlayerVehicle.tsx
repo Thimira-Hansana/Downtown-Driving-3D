@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Group, MathUtils, PerspectiveCamera, Quaternion, Raycaster, Vector3 } from 'three';
+import { Box3, Group, MathUtils, PerspectiveCamera, Quaternion, Raycaster, Vector3 } from 'three';
 import { CarModel } from '../../../entities/car/CarModel';
 import { SIMULATOR_CONFIG } from '../config/simulator.config';
 import { useDrivingInput } from '../hooks/use-driving-input';
@@ -40,10 +40,13 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const cycleCamera = useSimulatorStore((state) => state.cycleCamera);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
+  const setMapBounds = useSimulatorStore((state) => state.setMapBounds);
   const setMovementBlocked = useSimulatorStore((state) => state.setMovementBlocked);
+  const setPlayerPose = useSimulatorStore((state) => state.setPlayerPose);
   const setTelemetry = useSimulatorStore((state) => state.setTelemetry);
   const setReady = useSimulatorStore((state) => state.setReady);
   const camera = useThree((state) => state.camera);
+  const mapBoundsReadyRef = useRef(false);
 
   const inputRef = useDrivingInput({
     onCycleCamera: cycleCamera,
@@ -72,6 +75,20 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     const motion = motionRef.current;
     const previousPosition = previousPositionRef.current;
     const previousSpeed = motion.speed;
+
+    if (terrain && !mapBoundsReadyRef.current) {
+      const terrainBounds = new Box3().setFromObject(terrain);
+
+      if (!terrainBounds.isEmpty()) {
+        setMapBounds({
+          maxX: terrainBounds.max.x,
+          maxZ: terrainBounds.max.z,
+          minX: terrainBounds.min.x,
+          minZ: terrainBounds.min.z,
+        });
+        mapBoundsReadyRef.current = true;
+      }
+    }
 
     if ((!spawnReadyRef.current || resetVehicleRef.current) && terrain) {
       const spawn = findSpawnTransform(terrain, raycaster, SIMULATOR_CONFIG.vehicle);
@@ -167,6 +184,12 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
         delta,
       );
     }
+
+    setPlayerPose({
+      heading: motion.heading,
+      x: motion.position.x,
+      z: motion.position.z,
+    });
 
     updateCameraRig({
       acceleration: (motion.speed - previousSpeed) / Math.max(delta, 1e-3),

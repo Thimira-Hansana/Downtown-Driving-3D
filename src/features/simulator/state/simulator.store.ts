@@ -3,6 +3,19 @@ import { CAMERA_MODES, type CameraMode } from '../config/simulator.config';
 
 type Gear = 'D' | 'N' | 'R';
 
+interface MapBounds {
+  maxX: number;
+  maxZ: number;
+  minX: number;
+  minZ: number;
+}
+
+interface PlayerPose {
+  heading: number;
+  x: number;
+  z: number;
+}
+
 interface SimulatorState {
   cameraMode: CameraMode;
   cycleCamera: () => void;
@@ -14,9 +27,13 @@ interface SimulatorState {
   };
   instructionsVisible: boolean;
   isReady: boolean;
+  mapBounds: MapBounds | null;
+  playerPose: PlayerPose;
   rpm: number;
   setDebugInput: (payload: SimulatorState['debugInput']) => void;
+  setMapBounds: (payload: MapBounds) => void;
   setMovementBlocked: (value: boolean) => void;
+  setPlayerPose: (payload: PlayerPose) => void;
   setReady: (value: boolean) => void;
   setTelemetry: (payload: Partial<Pick<SimulatorState, 'rpm' | 'speedKph' | 'gear'>>) => void;
   speedKph: number;
@@ -42,9 +59,17 @@ export const useSimulatorStore = create<SimulatorState>((set) => ({
   gear: 'N',
   instructionsVisible: false,
   isReady: false,
+  mapBounds: null,
+  playerPose: {
+    heading: 0,
+    x: 0,
+    z: 0,
+  },
   rpm: 900,
   setDebugInput: (payload) => set({ debugInput: payload }),
+  setMapBounds: (payload) => set({ mapBounds: payload }),
   setMovementBlocked: (value) => set({ debugBlocked: value }),
+  setPlayerPose: (payload) => set({ playerPose: payload }),
   setReady: (value) => set({ isReady: value }),
   setTelemetry: (payload) => set(payload),
   speedKph: 0,
