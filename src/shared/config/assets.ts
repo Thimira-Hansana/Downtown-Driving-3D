@@ -1,5 +1,62 @@
 const withBase = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
+const vehicleAssetModules = import.meta.glob('../../../Assets/car/*.glb', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
+
+export interface VehicleOption {
+  assetPath: string;
+  id: string;
+  label: string;
+}
+
+function toVehicleId(fileName: string) {
+  return fileName
+    .replace(/\.glb$/i, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function toVehicleLabel(fileName: string) {
+  return fileName
+    .replace(/\.glb$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function compareVehicleOptions(a: VehicleOption, b: VehicleOption) {
+  if (a.id === 'free-porsche-911-carrera-4s') {
+    return -1;
+  }
+
+  if (b.id === 'free-porsche-911-carrera-4s') {
+    return 1;
+  }
+
+  return a.label.localeCompare(b.label);
+}
+
+export const VEHICLE_OPTIONS = Object.entries(vehicleAssetModules)
+  .map(([modulePath, assetPath]) => {
+    const fileName = modulePath.split('/').pop() ?? modulePath;
+
+    return {
+      assetPath,
+      id: toVehicleId(fileName),
+      label: toVehicleLabel(fileName),
+    };
+  })
+  .sort(compareVehicleOptions);
+
+export const DEFAULT_VEHICLE_ID =
+  VEHICLE_OPTIONS.find((vehicle) => vehicle.id === 'free-porsche-911-carrera-4s')?.id ??
+  VEHICLE_OPTIONS[0]?.id ??
+  'default-vehicle';
+
 export const ASSET_PATHS = {
   audio: {
     acceleration: withBase('assets/audio/car-acceleration.mp3'),
@@ -10,6 +67,9 @@ export const ASSET_PATHS = {
     horn: withBase('assets/audio/double-car-horn.mp3'),
     reverseBeep: withBase('assets/audio/drive-in-reverse-beep-alert-54774.mp3'),
   },
-  car: withBase('assets/car/free_porsche_911_carrera_4s.glb'),
   map: withBase('assets/map/nfs_undercover_ds_-_metropolis.glb'),
 } as const;
+
+export function getVehicleOptionById(vehicleId: string) {
+  return VEHICLE_OPTIONS.find((vehicle) => vehicle.id === vehicleId) ?? VEHICLE_OPTIONS[0] ?? null;
+}

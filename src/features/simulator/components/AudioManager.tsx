@@ -2,6 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSET_PATHS } from '../../../shared/config/assets';
 import { useSimulatorStore } from '../state/simulator.store';
 
+const AUDIO_LEVELS = {
+  brake: 0.4,
+  city: 0.18,
+  crash: 0.42,
+  drift: 0.34,
+  horn: 0.46,
+  reverseBeep: 0.22,
+} as const;
+
 function createLoopingAudio(src: string, volume: number) {
   const audio = new Audio(src);
   audio.loop = true;
@@ -18,10 +27,14 @@ function createOneShotAudio(src: string, volume: number) {
 }
 
 export function AudioManager() {
+  const ambienceVolume = useSimulatorStore((state) => state.ambienceVolume);
   const debugBlocked = useSimulatorStore((state) => state.debugBlocked);
   const debugInput = useSimulatorStore((state) => state.debugInput);
+  const effectsVolume = useSimulatorStore((state) => state.effectsVolume);
+  const engineVolume = useSimulatorStore((state) => state.engineVolume);
   const gear = useSimulatorStore((state) => state.gear);
   const isReady = useSimulatorStore((state) => state.isReady);
+  const masterVolume = useSimulatorStore((state) => state.masterVolume);
   const rpm = useSimulatorStore((state) => state.rpm);
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -32,12 +45,12 @@ export function AudioManager() {
   const audio = useMemo(
     () => ({
       acceleration: createLoopingAudio(ASSET_PATHS.audio.acceleration, 0),
-      brake: createOneShotAudio(ASSET_PATHS.audio.brake, 0.4),
-      city: createLoopingAudio(ASSET_PATHS.audio.city, 0.18),
-      crash: createOneShotAudio(ASSET_PATHS.audio.crash, 0.42),
+      brake: createOneShotAudio(ASSET_PATHS.audio.brake, AUDIO_LEVELS.brake),
+      city: createLoopingAudio(ASSET_PATHS.audio.city, AUDIO_LEVELS.city),
+      crash: createOneShotAudio(ASSET_PATHS.audio.crash, AUDIO_LEVELS.crash),
       drift: createLoopingAudio(ASSET_PATHS.audio.drift, 0),
-      horn: createOneShotAudio(ASSET_PATHS.audio.horn, 0.46),
-      reverseBeep: createLoopingAudio(ASSET_PATHS.audio.reverseBeep, 0.22),
+      horn: createOneShotAudio(ASSET_PATHS.audio.horn, AUDIO_LEVELS.horn),
+      reverseBeep: createLoopingAudio(ASSET_PATHS.audio.reverseBeep, AUDIO_LEVELS.reverseBeep),
     }),
     [],
   );
@@ -115,7 +128,7 @@ export function AudioManager() {
     const accelerationVolume =
       speedKph > 0 || throttlePressure > 0 ? 0.08 + driveRatio * 0.28 + throttlePressure * 0.12 : 0;
 
-    audio.acceleration.volume = Math.min(accelerationVolume, 0.42);
+    audio.acceleration.volume = Math.min(accelerationVolume, 0.42) * masterVolume * engineVolume;
     audio.acceleration.playbackRate = Math.min(0.7 + rpm / 5200, 1.9);
 
     if ((speedKph > 0 || throttlePressure > 0) && audio.acceleration.paused) {
@@ -126,7 +139,17 @@ export function AudioManager() {
       audio.acceleration.pause();
       audio.acceleration.currentTime = 0;
     }
-  }, [audio, debugInput.throttle, gear, isReady, isUnlocked, rpm, speedKph]);
+  }, [
+    audio,
+    debugInput.throttle,
+    engineVolume,
+    gear,
+    isReady,
+    isUnlocked,
+    masterVolume,
+    rpm,
+    speedKph,
+  ]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -143,12 +166,17 @@ export function AudioManager() {
   }, [audio, isUnlocked]);
 
   useEffect(() => {
+    audio.city.volume = AUDIO_LEVELS.city * masterVolume * ambienceVolume;
+  }, [ambienceVolume, audio, masterVolume]);
+
+  useEffect(() => {
     if (!isUnlocked || !isReady) {
       return;
     }
 
     const shouldPlayReverseBeep = gear === 'R';
-    audio.reverseBeep.volume = shouldPlayReverseBeep ? 0.22 : 0;
+    audio.reverseBeep.volume =
+      shouldPlayReverseBeep ? AUDIO_LEVELS.reverseBeep * masterVolume * effectsVolume : 0;
 
     if (shouldPlayReverseBeep && audio.reverseBeep.paused) {
       void audio.reverseBeep.play().catch(() => {});
@@ -158,7 +186,7 @@ export function AudioManager() {
       audio.reverseBeep.pause();
       audio.reverseBeep.currentTime = 0;
     }
-  }, [audio, gear, isReady, isUnlocked]);
+  }, [audio, effectsVolume, gear, isReady, isUnlocked, masterVolume]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -169,6 +197,7 @@ export function AudioManager() {
 
     if (isHardBrake && !brakeLockRef.current) {
       brakeLockRef.current = true;
+      audio.brake.volume = AUDIO_LEVELS.brake * masterVolume * effectsVolume;
       audio.brake.currentTime = 0;
       void audio.brake.play().catch(() => {});
     }
@@ -176,7 +205,7 @@ export function AudioManager() {
     if (!debugInput.brake) {
       brakeLockRef.current = false;
     }
-  }, [audio, debugInput.brake, isUnlocked, speedKph]);
+  }, [audio, debugInput.brake, effectsVolume, isUnlocked, masterVolume, speedKph]);
 
   useEffect(() => {
     if (!isUnlocked || !isReady) {
@@ -200,10 +229,12 @@ export function AudioManager() {
     const shouldDrift = sustainedTurnRatio > 0;
 
     audio.drift.volume = shouldDrift
-      ? Math.min((0.12 + driftRatio * (0.16 + steerAmount * 0.22)) * sustainedTurnRatio, 0.34)
+      ? Math.min((0.12 + driftRatio * (0.16 + steerAmount * 0.22)) * sustainedTurnRatio, AUDIO_LEVELS.drift) *
+        masterVolume *
+        effectsVolume
       : 0;
     audio.drift.playbackRate = shouldDrift ? 0.92 + driftRatio * 0.35 : 0.9;
-  }, [audio, debugInput.steer, isReady, isUnlocked, speedKph]);
+  }, [audio, debugInput.steer, effectsVolume, isReady, isUnlocked, masterVolume, speedKph]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -212,6 +243,7 @@ export function AudioManager() {
 
     if (debugBlocked && speedKph > 10 && !crashLockRef.current) {
       crashLockRef.current = true;
+      audio.crash.volume = AUDIO_LEVELS.crash * masterVolume * effectsVolume;
       audio.crash.currentTime = 0;
       void audio.crash.play().catch(() => {});
     }
@@ -219,7 +251,11 @@ export function AudioManager() {
     if (!debugBlocked) {
       crashLockRef.current = false;
     }
-  }, [audio, debugBlocked, isUnlocked, speedKph]);
+  }, [audio, debugBlocked, effectsVolume, isUnlocked, masterVolume, speedKph]);
+
+  useEffect(() => {
+    audio.horn.volume = AUDIO_LEVELS.horn * masterVolume * effectsVolume;
+  }, [audio, effectsVolume, masterVolume]);
 
   useEffect(() => {
     return () => {
