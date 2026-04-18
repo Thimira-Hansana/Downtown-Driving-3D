@@ -44,9 +44,9 @@ interface VehicleStat {
 const PAINT_SWATCHES = ['#1b6fff', '#d8383f', '#ff8a2a', '#ffd34d', '#2cb67d', '#f4f7fb', '#1f1f24'];
 
 const SETTINGS_TABS: SettingsTab[] = [
+  { id: 'garage', label: 'Garage', description: 'Vehicle and paint setup' },
   { id: 'display', label: 'Display Settings', description: 'Camera and HUD layout' },
   { id: 'audio', label: 'Audio', description: 'Engine, city, and effects mix' },
-  { id: 'garage', label: 'Garage', description: 'Vehicle and paint setup' },
   { id: 'controls', label: 'Control Bindings', description: 'Driving shortcuts and help' },
   { id: 'preferences', label: 'Preferences', description: 'Quick HUD presets and status' },
 ];
@@ -136,7 +136,7 @@ function createVehicleStats(vehicleId: string): VehicleStat[] {
 }
 
 export function HudOverlay() {
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabId>('display');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabId>('garage');
 
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const rpm = useSimulatorStore((state) => state.rpm);
