@@ -277,7 +277,7 @@ export function applyVehiclePaint(root: Group, paintHex: string) {
 }
 
 export function applyWheelSteering(wheels: SteerableWheelNode[], steeringAngle: number) {
-  const steeringQuaternion = new Quaternion().setFromAxisAngle(steeringAxis, steeringAngle);
+  const steeringQuaternion = new Quaternion().setFromAxisAngle(steeringAxis, -steeringAngle);
 
   wheels.forEach(({ baseQuaternion, node }) => {
     node.quaternion.copy(baseQuaternion).multiply(steeringQuaternion);
