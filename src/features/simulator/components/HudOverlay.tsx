@@ -110,8 +110,10 @@ function cameraModeLabel(mode: (typeof CAMERA_MODES)[number]) {
   switch (mode) {
     case 'chase':
       return 'Chase';
+    case 'bonnet':
+      return 'Bonnet';
     case 'driver':
-      return 'Driver';
+      return 'Driver Seat';
     case 'dickey':
       return 'Rear';
     case 'overview':

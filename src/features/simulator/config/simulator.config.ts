@@ -1,4 +1,4 @@
-export const CAMERA_MODES = ['chase', 'driver', 'dickey', 'overview'] as const;
+export const CAMERA_MODES = ['chase', 'bonnet', 'driver', 'dickey', 'overview'] as const;
 
 export type CameraMode = (typeof CAMERA_MODES)[number];
 export type ActiveCameraMode = CameraMode | 'reverse';
@@ -42,12 +42,20 @@ export const SIMULATOR_CONFIG = {
       localPositionOffset: [0, 2.45, -6.6] as const,
       speedPositionOffset: [0, 0.45, -3.2] as const,
     },
+    bonnet: {
+      accelerationPositionOffset: [0, 0, 0] as const,
+      baseFov: 68,
+      followDamping: 11,
+      localLookOffset: [0, 1.02, 14] as const,
+      localPositionOffset: [0, 1.08, 2.02] as const,
+      speedPositionOffset: [0, 0, 0] as const,
+    },
     driver: {
-      accelerationPositionOffset: [0, 0.08, -0.6] as const,
-      baseFov: 72,
-      followDamping: 8.5,
-      localLookOffset: [0, 1.2, 14] as const,
-      localPositionOffset: [0, 1.32, 0.48] as const,
+      accelerationPositionOffset: [0, 0, 0] as const,
+      baseFov: 74,
+      followDamping: 11,
+      localLookOffset: [0.18, 1.14, 14] as const,
+      localPositionOffset: [0.18, 1.12, 0.22] as const,
       speedPositionOffset: [0, 0, 0] as const,
     },
     dickey: {

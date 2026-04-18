@@ -39,6 +39,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const cycleCamera = useSimulatorStore((state) => state.cycleCamera);
+  const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
   const setMapBounds = useSimulatorStore((state) => state.setMapBounds);
   const setMovementBlocked = useSimulatorStore((state) => state.setMovementBlocked);
@@ -198,6 +199,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       delta,
       rigState: cameraRigStateRef.current,
       speed: motion.speed,
+      vehicleId: selectedVehicleId,
       vehicleRoot: vehicle,
     });
 
