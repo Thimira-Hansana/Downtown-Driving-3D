@@ -201,6 +201,7 @@ async function renderThumbnail(vehicleId: string, paintColor: string) {
   try {
     const baseScene = await loadBaseScene(vehicleId);
     const preparedVehicle = prepareVehicleModel(baseScene, paintColor);
+    const vehicleRoot = preparedVehicle.root;
     const scene = new Scene();
     const camera = new PerspectiveCamera(28, THUMBNAIL_WIDTH / THUMBNAIL_HEIGHT, 0.1, 30);
     const nextRenderer = getRenderer();
@@ -210,11 +211,11 @@ async function renderThumbnail(vehicleId: string, paintColor: string) {
     const sphere = new Sphere();
     const cameraDirection = new Vector3(0.92, 0.3, 1).normalize();
 
-    preparedVehicle.position.set(0.65, -1.02, 0);
-    preparedVehicle.rotation.set(-0.04, -0.76, 0);
-    preparedVehicle.scale.setScalar(1.18);
+    vehicleRoot.position.set(0.65, -1.02, 0);
+    vehicleRoot.rotation.set(-0.04, -0.76, 0);
+    vehicleRoot.scale.setScalar(1.18);
 
-    bounds.copy(getVehicleBounds(preparedVehicle));
+    bounds.copy(getVehicleBounds(vehicleRoot));
     bounds.getCenter(center);
     bounds.getSize(size);
     bounds.getBoundingSphere(sphere);
@@ -255,14 +256,14 @@ async function renderThumbnail(vehicleId: string, paintColor: string) {
     scene.add(rimLight);
 
     scene.add(floor);
-    scene.add(preparedVehicle);
+    scene.add(vehicleRoot);
 
     nextRenderer.clear(true, true, true);
     nextRenderer.render(scene, camera);
     const dataUrl = nextRenderer.domElement.toDataURL('image/png');
 
-    scene.remove(preparedVehicle);
-    disposeThumbnailMaterials(preparedVehicle);
+    scene.remove(vehicleRoot);
+    disposeThumbnailMaterials(vehicleRoot);
 
     return dataUrl;
   } catch {

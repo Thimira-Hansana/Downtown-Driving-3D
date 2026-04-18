@@ -36,6 +36,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   const targetQuaternionRef = useRef(new Quaternion());
   const resetVehicleRef = useRef(false);
   const previousPositionRef = useRef(new Vector3());
+  const steeringAngleRef = useRef(0);
 
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const cycleCamera = useSimulatorStore((state) => state.cycleCamera);
@@ -112,6 +113,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       motion.heading = spawn.heading;
       motion.speed = 0;
       motion.steering = 0;
+      steeringAngleRef.current = 0;
       vehicle.position.copy(motion.position);
       targetQuaternionRef.current.copy(
         createChassisQuaternion(
@@ -186,6 +188,8 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       motion.steering = MathUtils.damp(previousSteering, 0, 10, delta);
     }
 
+    steeringAngleRef.current = motion.steering;
+
     const terrainProbe = sampleTerrainUnderVehicle(
       terrain,
       raycaster,
@@ -251,7 +255,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   return (
     <group ref={vehicleRef}>
       <group ref={modelRef}>
-        <CarModel bodyLean={0} />
+        <CarModel bodyLean={0} steeringAngleRef={steeringAngleRef} />
       </group>
     </group>
   );
