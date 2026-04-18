@@ -56,10 +56,11 @@ export function useDrivingInput({
   const setDebugInput = useSimulatorStore((state) => state.setDebugInput);
   const pauseMenuVisible = useSimulatorStore((state) => state.pauseMenuVisible);
   const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
+  const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
 
   useEffect(() => {
     const normalizeKey = (event: KeyboardEvent) => `${event.code || event.key}`.toLowerCase();
-    const inputBlocked = pauseMenuVisible || settingsVisible;
+    const inputBlocked = pauseMenuVisible || settingsVisible || transitionLoadingVisible;
 
     const updateSnapshot = () => {
       if (inputBlocked) {
@@ -146,10 +147,18 @@ export function useDrivingInput({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [onCycleCamera, onReset, onToggleInstructions, pauseMenuVisible, setDebugInput, settingsVisible]);
+  }, [
+    onCycleCamera,
+    onReset,
+    onToggleInstructions,
+    pauseMenuVisible,
+    setDebugInput,
+    settingsVisible,
+    transitionLoadingVisible,
+  ]);
 
   useEffect(() => {
-    if (!pauseMenuVisible && !settingsVisible) {
+    if (!pauseMenuVisible && !settingsVisible && !transitionLoadingVisible) {
       return;
     }
 
@@ -165,7 +174,7 @@ export function useDrivingInput({
       steer: 0,
       throttle: 0,
     });
-  }, [pauseMenuVisible, setDebugInput, settingsVisible]);
+  }, [pauseMenuVisible, setDebugInput, settingsVisible, transitionLoadingVisible]);
 
   return snapshotRef;
 }

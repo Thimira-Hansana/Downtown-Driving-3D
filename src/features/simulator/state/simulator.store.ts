@@ -41,6 +41,8 @@ interface SimulatorState {
   restartToken: number;
   rpm: number;
   selectedVehicleId: string;
+  setTransitionLoadingLabel: (value: string) => void;
+  setTransitionLoadingVisible: (value: boolean) => void;
   setAudioChannel: (channel: AudioChannel, value: number) => void;
   setCameraMode: (mode: CameraMode) => void;
   setDashboardVisible: (value: boolean) => void;
@@ -63,6 +65,8 @@ interface SimulatorState {
   settingsVisible: boolean;
   toggleInstructions: () => void;
   toggleSettings: () => void;
+  transitionLoadingLabel: string;
+  transitionLoadingVisible: boolean;
   vehicleColor: string;
 }
 
@@ -106,6 +110,8 @@ export const useSimulatorStore = create<SimulatorState>()(
       restartToken: 0,
       rpm: 900,
       selectedVehicleId: DEFAULT_VEHICLE_ID,
+      setTransitionLoadingLabel: (value) => set({ transitionLoadingLabel: value }),
+      setTransitionLoadingVisible: (value) => set({ transitionLoadingVisible: value }),
       setAudioChannel: (channel, value) =>
         set({
           [channel]: Math.max(0, Math.min(value, 1)),
@@ -134,6 +140,8 @@ export const useSimulatorStore = create<SimulatorState>()(
         set((state) => ({
           settingsVisible: !state.settingsVisible,
         })),
+      transitionLoadingLabel: 'Preparing simulator',
+      transitionLoadingVisible: false,
       vehicleColor: '#1b6fff',
     }),
     {

@@ -44,11 +44,13 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
   const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
+  const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
   const setMapBounds = useSimulatorStore((state) => state.setMapBounds);
   const setMovementBlocked = useSimulatorStore((state) => state.setMovementBlocked);
   const setPlayerPose = useSimulatorStore((state) => state.setPlayerPose);
   const setTelemetry = useSimulatorStore((state) => state.setTelemetry);
   const setReady = useSimulatorStore((state) => state.setReady);
+  const setTransitionLoadingVisible = useSimulatorStore((state) => state.setTransitionLoadingVisible);
   const camera = useThree((state) => state.camera);
   const mapBoundsReadyRef = useRef(false);
 
@@ -103,6 +105,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     }
 
     if ((!spawnReadyRef.current || resetVehicleRef.current) && terrain) {
+      const shouldDismissTransition = resetVehicleRef.current && transitionLoadingVisible;
       const spawn = findSpawnTransform(terrain, raycaster, SIMULATOR_CONFIG.vehicle);
       motion.position.copy(spawn.position);
       motion.position.y += SIMULATOR_CONFIG.vehicle.rideHeight;
@@ -127,9 +130,13 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       spawnReadyRef.current = true;
       resetVehicleRef.current = false;
       setReady(true);
+
+      if (shouldDismissTransition) {
+        setTransitionLoadingVisible(false);
+      }
     }
 
-    if (pauseMenuVisible || settingsVisible) {
+    if (pauseMenuVisible || settingsVisible || transitionLoadingVisible) {
       setMovementBlocked(false);
       updateCameraRig({
         acceleration: 0,

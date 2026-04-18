@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CAMERA_MODES } from '../config/simulator.config';
 import { useSimulatorStore } from '../state/simulator.store';
 import { GarageVehiclePreview } from './GarageVehiclePreview';
@@ -56,6 +56,8 @@ const SETTINGS_TABS: SettingsTab[] = [
   { id: 'controls', label: 'Control Bindings', description: 'Driving shortcuts and help' },
   { id: 'preferences', label: 'Preferences', description: 'Quick HUD presets and status' },
 ];
+
+const TRANSITION_DELAY_MS = 850;
 
 function DialGauge({ accent, label, max, suffix, value, variant = 'compact' }: DialGaugeProps) {
   const clamped = Math.max(0, Math.min(value, max));
@@ -154,6 +156,7 @@ function createVehicleStats(vehicleId: string): VehicleStat[] {
 
 export function HudOverlay() {
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabId>('garage');
+  const transitionTimeoutRef = useRef<number | null>(null);
 
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const rpm = useSimulatorStore((state) => state.rpm);
@@ -166,7 +169,6 @@ export function HudOverlay() {
   const setInstructionsVisible = useSimulatorStore((state) => state.setInstructionsVisible);
   const setPauseMenuVisible = useSimulatorStore((state) => state.setPauseMenuVisible);
   const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
-  const toggleSettings = useSimulatorStore((state) => state.toggleSettings);
   const setSettingsVisible = useSimulatorStore((state) => state.setSettingsVisible);
   const masterVolume = useSimulatorStore((state) => state.masterVolume);
   const engineVolume = useSimulatorStore((state) => state.engineVolume);
@@ -174,6 +176,9 @@ export function HudOverlay() {
   const ambienceVolume = useSimulatorStore((state) => state.ambienceVolume);
   const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
   const setSelectedVehicleId = useSimulatorStore((state) => state.setSelectedVehicleId);
+  const setTransitionLoadingLabel = useSimulatorStore((state) => state.setTransitionLoadingLabel);
+  const setTransitionLoadingVisible = useSimulatorStore((state) => state.setTransitionLoadingVisible);
+  const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
   const vehicleColor = useSimulatorStore((state) => state.vehicleColor);
   const setVehicleColor = useSimulatorStore((state) => state.setVehicleColor);
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
@@ -208,6 +213,14 @@ export function HudOverlay() {
     };
   }, [pauseMenuVisible, setPauseMenuVisible, setSettingsVisible, settingsVisible]);
 
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current != null) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const applyHudPreset = (preset: 'balanced' | 'minimal' | 'training') => {
     if (preset === 'minimal') {
       setMiniMapVisible(false);
@@ -229,12 +242,38 @@ export function HudOverlay() {
   };
 
   const activeTabMeta = SETTINGS_TABS.find((tab) => tab.id === activeSettingsTab) ?? SETTINGS_TABS[0];
-  const openSettings = () => {
+  const runTimedScreenTransition = (label: string, action: () => void) => {
+    if (transitionTimeoutRef.current != null) {
+      window.clearTimeout(transitionTimeoutRef.current);
+    }
+
     setPauseMenuVisible(false);
-    setSettingsVisible(true);
+    setSettingsVisible(false);
+    setTransitionLoadingLabel(label);
+    setTransitionLoadingVisible(true);
+
+    transitionTimeoutRef.current = window.setTimeout(() => {
+      action();
+      setTransitionLoadingVisible(false);
+      transitionTimeoutRef.current = null;
+    }, TRANSITION_DELAY_MS);
+  };
+
+  const openSettings = () => {
+    if (transitionLoadingVisible) {
+      return;
+    }
+
+    runTimedScreenTransition('Opening simulator menu', () => {
+      setSettingsVisible(true);
+    });
   };
 
   const togglePauseMenu = () => {
+    if (transitionLoadingVisible) {
+      return;
+    }
+
     if (settingsVisible) {
       setSettingsVisible(false);
     }
@@ -243,9 +282,20 @@ export function HudOverlay() {
   };
 
   const handleRestart = () => {
-    requestRestart();
+    if (transitionLoadingVisible) {
+      return;
+    }
+
+    if (transitionTimeoutRef.current != null) {
+      window.clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
+
     setPauseMenuVisible(false);
     setSettingsVisible(false);
+    setTransitionLoadingLabel('Resetting drive session');
+    setTransitionLoadingVisible(true);
+    requestRestart();
   };
 
   let settingsContent: JSX.Element;
@@ -579,8 +629,16 @@ export function HudOverlay() {
             type="button"
             className={`hud__settings-toggle panel${settingsVisible ? ' is-active' : ''}`}
             onClick={() => {
-              setPauseMenuVisible(false);
-              toggleSettings();
+              if (transitionLoadingVisible) {
+                return;
+              }
+
+              if (settingsVisible) {
+                setSettingsVisible(false);
+                return;
+              }
+
+              openSettings();
             }}
             aria-expanded={settingsVisible}
             aria-label={settingsVisible ? 'Close settings' : 'Open settings'}
