@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Group, MathUtils, PerspectiveCamera, Quaternion, Raycaster, Vector3 } from 'three';
+import { Box3, Group, MathUtils, PerspectiveCamera, Quaternion, Raycaster, Vector3 } from 'three';
 import { CarModel } from '../../../entities/car/CarModel';
 import { SIMULATOR_CONFIG } from '../config/simulator.config';
 import { useDrivingInput } from '../hooks/use-driving-input';
@@ -36,14 +36,24 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   const targetQuaternionRef = useRef(new Quaternion());
   const resetVehicleRef = useRef(false);
   const previousPositionRef = useRef(new Vector3());
+  const steeringAngleRef = useRef(0);
 
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const cycleCamera = useSimulatorStore((state) => state.cycleCamera);
+  const pauseMenuVisible = useSimulatorStore((state) => state.pauseMenuVisible);
+  const restartToken = useSimulatorStore((state) => state.restartToken);
+  const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
+  const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
+  const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
+  const setMapBounds = useSimulatorStore((state) => state.setMapBounds);
   const setMovementBlocked = useSimulatorStore((state) => state.setMovementBlocked);
+  const setPlayerPose = useSimulatorStore((state) => state.setPlayerPose);
   const setTelemetry = useSimulatorStore((state) => state.setTelemetry);
   const setReady = useSimulatorStore((state) => state.setReady);
+  const setTransitionLoadingVisible = useSimulatorStore((state) => state.setTransitionLoadingVisible);
   const camera = useThree((state) => state.camera);
+  const mapBoundsReadyRef = useRef(false);
 
   const inputRef = useDrivingInput({
     onCycleCamera: cycleCamera,
@@ -59,6 +69,14 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     };
   }, [setReady]);
 
+  useEffect(() => {
+    if (restartToken === 0) {
+      return;
+    }
+
+    resetVehicleRef.current = true;
+  }, [restartToken]);
+
   useFrame((state, rawDelta) => {
     const vehicle = vehicleRef.current;
     const terrain = terrainRef.current;
@@ -71,14 +89,31 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     const delta = Math.min(rawDelta, 1 / 30);
     const motion = motionRef.current;
     const previousPosition = previousPositionRef.current;
+    const previousSpeed = motion.speed;
+
+    if (terrain && !mapBoundsReadyRef.current) {
+      const terrainBounds = new Box3().setFromObject(terrain);
+
+      if (!terrainBounds.isEmpty()) {
+        setMapBounds({
+          maxX: terrainBounds.max.x,
+          maxZ: terrainBounds.max.z,
+          minX: terrainBounds.min.x,
+          minZ: terrainBounds.min.z,
+        });
+        mapBoundsReadyRef.current = true;
+      }
+    }
 
     if ((!spawnReadyRef.current || resetVehicleRef.current) && terrain) {
+      const shouldDismissTransition = resetVehicleRef.current && transitionLoadingVisible;
       const spawn = findSpawnTransform(terrain, raycaster, SIMULATOR_CONFIG.vehicle);
       motion.position.copy(spawn.position);
       motion.position.y += SIMULATOR_CONFIG.vehicle.rideHeight;
       motion.heading = spawn.heading;
       motion.speed = 0;
       motion.steering = 0;
+      steeringAngleRef.current = 0;
       vehicle.position.copy(motion.position);
       targetQuaternionRef.current.copy(
         createChassisQuaternion(
@@ -97,6 +132,25 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       spawnReadyRef.current = true;
       resetVehicleRef.current = false;
       setReady(true);
+
+      if (shouldDismissTransition) {
+        setTransitionLoadingVisible(false);
+      }
+    }
+
+    if (pauseMenuVisible || settingsVisible || transitionLoadingVisible) {
+      setMovementBlocked(false);
+      updateCameraRig({
+        acceleration: 0,
+        camera: camera as PerspectiveCamera,
+        cameraMode,
+        delta,
+        rigState: cameraRigStateRef.current,
+        speed: motion.speed,
+        vehicleId: selectedVehicleId,
+        vehicleRoot: vehicle,
+      });
+      return;
     }
 
     previousPosition.copy(motion.position);
@@ -134,6 +188,8 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       motion.steering = MathUtils.damp(previousSteering, 0, 10, delta);
     }
 
+    steeringAngleRef.current = motion.steering;
+
     const terrainProbe = sampleTerrainUnderVehicle(
       terrain,
       raycaster,
@@ -167,12 +223,20 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       );
     }
 
+    setPlayerPose({
+      heading: motion.heading,
+      x: motion.position.x,
+      z: motion.position.z,
+    });
+
     updateCameraRig({
+      acceleration: (motion.speed - previousSpeed) / Math.max(delta, 1e-3),
       camera: camera as PerspectiveCamera,
       cameraMode: motion.speed < -0.4 ? 'reverse' : cameraMode,
       delta,
       rigState: cameraRigStateRef.current,
       speed: motion.speed,
+      vehicleId: selectedVehicleId,
       vehicleRoot: vehicle,
     });
 
@@ -191,7 +255,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   return (
     <group ref={vehicleRef}>
       <group ref={modelRef}>
-        <CarModel bodyLean={0} />
+        <CarModel bodyLean={0} steeringAngleRef={steeringAngleRef} />
       </group>
     </group>
   );

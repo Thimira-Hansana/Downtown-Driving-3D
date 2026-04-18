@@ -54,11 +54,30 @@ export function useDrivingInput({
     throttle: 0,
   });
   const setDebugInput = useSimulatorStore((state) => state.setDebugInput);
+  const pauseMenuVisible = useSimulatorStore((state) => state.pauseMenuVisible);
+  const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
+  const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
 
   useEffect(() => {
     const normalizeKey = (event: KeyboardEvent) => `${event.code || event.key}`.toLowerCase();
+    const inputBlocked = pauseMenuVisible || settingsVisible || transitionLoadingVisible;
 
     const updateSnapshot = () => {
+      if (inputBlocked) {
+        snapshotRef.current = {
+          boost: false,
+          brake: false,
+          steer: 0,
+          throttle: 0,
+        };
+        setDebugInput({
+          brake: false,
+          steer: 0,
+          throttle: 0,
+        });
+        return;
+      }
+
       const keys = pressedKeysRef.current;
       const throttleForward = [...FORWARD_KEYS].some((key) => keys.has(key));
       const throttleBackward = [...REVERSE_KEYS].some((key) => keys.has(key));
@@ -83,6 +102,10 @@ export function useDrivingInput({
 
       if (CONTROL_KEYS.has(event.code) || CONTROL_KEYS.has(event.key)) {
         event.preventDefault();
+      }
+
+      if (inputBlocked) {
+        return;
       }
 
       const wasPressed = pressedKeysRef.current.has(normalizedKey);
@@ -124,7 +147,34 @@ export function useDrivingInput({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [onCycleCamera, onReset, onToggleInstructions, setDebugInput]);
+  }, [
+    onCycleCamera,
+    onReset,
+    onToggleInstructions,
+    pauseMenuVisible,
+    setDebugInput,
+    settingsVisible,
+    transitionLoadingVisible,
+  ]);
+
+  useEffect(() => {
+    if (!pauseMenuVisible && !settingsVisible && !transitionLoadingVisible) {
+      return;
+    }
+
+    pressedKeysRef.current.clear();
+    snapshotRef.current = {
+      boost: false,
+      brake: false,
+      steer: 0,
+      throttle: 0,
+    };
+    setDebugInput({
+      brake: false,
+      steer: 0,
+      throttle: 0,
+    });
+  }, [pauseMenuVisible, setDebugInput, settingsVisible, transitionLoadingVisible]);
 
   return snapshotRef;
 }

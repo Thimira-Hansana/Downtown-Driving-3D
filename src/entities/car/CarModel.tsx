@@ -1,33 +1,49 @@
-import { useMemo } from 'react';
+import { type MutableRefObject, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import { useGLTF } from '@react-three/drei';
-import { ASSET_PATHS } from '../../shared/config/assets';
-import { cloneScene, normalizeScene, prepareScene } from '../../shared/lib/scene-utils';
+import { VEHICLE_OPTIONS, getVehicleOptionById } from '../../shared/config/assets';
 import { SIMULATOR_CONFIG } from '../../features/simulator/config/simulator.config';
+import { useSimulatorStore } from '../../features/simulator/state/simulator.store';
+import { applyWheelSteering, prepareVehicleModel } from './lib/vehicle-scene';
 
 interface CarModelProps {
   bodyLean: number;
+  paintColor?: string;
+  steeringAngleRef?: MutableRefObject<number>;
+  vehicleId?: string;
 }
 
-export function CarModel({ bodyLean }: CarModelProps) {
-  const { scene } = useGLTF(ASSET_PATHS.car);
+const VEHICLE_YAW_OFFSETS: Record<string, number> = {
+  '2013-jeep-grand-cherokee-srt8': Math.PI,
+};
 
-  const model = useMemo(() => {
-    const nextScene = cloneScene(scene) as Group;
-    prepareScene(nextScene, { castShadow: true, receiveShadow: true });
-    normalizeScene(nextScene, {
-      alignBottom: true,
-      centerXZ: true,
-      targetFootprint: SIMULATOR_CONFIG.vehicle.visualFootprint,
-    });
-    return nextScene;
-  }, [scene]);
+export function CarModel({ bodyLean, paintColor, steeringAngleRef, vehicleId }: CarModelProps) {
+  const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
+  const vehicleColor = useSimulatorStore((state) => state.vehicleColor);
+  const resolvedVehicleId = vehicleId ?? selectedVehicleId;
+  const resolvedPaintColor = paintColor ?? vehicleColor;
+  const activeVehicle = getVehicleOptionById(resolvedVehicleId);
+  const { scene } = useGLTF(activeVehicle?.assetPath ?? VEHICLE_OPTIONS[0].assetPath);
+  const modelYawOffset = SIMULATOR_CONFIG.vehicle.modelYawOffset + (VEHICLE_YAW_OFFSETS[resolvedVehicleId] ?? 0);
+  const frontDirectionSign = Math.cos(modelYawOffset) >= 0 ? 1 : -1;
+
+  const model = useMemo(
+    () => prepareVehicleModel(scene as Group, resolvedPaintColor, frontDirectionSign),
+    [frontDirectionSign, resolvedPaintColor, scene],
+  );
+
+  useFrame(() => {
+    applyWheelSteering(model.steerableWheelNodes, steeringAngleRef?.current ?? 0);
+  });
 
   return (
-    <group rotation={[0, SIMULATOR_CONFIG.vehicle.modelYawOffset, bodyLean]}>
-      <primitive object={model} />
+    <group rotation={[0, modelYawOffset, bodyLean]}>
+      <primitive object={model.root} />
     </group>
   );
 }
 
-useGLTF.preload(ASSET_PATHS.car);
+VEHICLE_OPTIONS.forEach((vehicle) => {
+  useGLTF.preload(vehicle.assetPath);
+});
