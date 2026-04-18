@@ -38,6 +38,7 @@ https://thimira-hansana.github.io/Open-City-Driver-3D/
 - `Space`: brake
 - `Shift`: boost
 - `C`: switch camera
+- Camera modes: `chase`, `driver`, `dickey`, `overview`
 - `R`: reset vehicle
 - `H`: toggle controls panel
 

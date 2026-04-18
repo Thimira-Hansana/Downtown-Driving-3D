@@ -5,6 +5,7 @@ import {
 } from '../config/simulator.config';
 
 interface CameraRigState {
+  localAcceleration: number;
   localAngle: number;
   localHeight: number;
   localRadius: number;
@@ -14,6 +15,7 @@ interface CameraRigState {
 }
 
 interface UpdateCameraOptions {
+  acceleration: number;
   camera: PerspectiveCamera;
   cameraMode: ActiveCameraMode;
   delta: number;
@@ -32,6 +34,7 @@ export function createCameraRigState() {
   const initialLookAt = SIMULATOR_CONFIG.camera.chase.localLookOffset;
 
   return {
+    localAcceleration: 0,
     localAngle: Math.atan2(initialPosition[0], initialPosition[2]),
     localHeight: initialPosition[1],
     localRadius: Math.hypot(initialPosition[0], initialPosition[2]),
@@ -42,6 +45,7 @@ export function createCameraRigState() {
 }
 
 export function updateCameraRig({
+  acceleration,
   camera,
   cameraMode,
   delta,
@@ -51,11 +55,31 @@ export function updateCameraRig({
 }: UpdateCameraOptions) {
   const preset = SIMULATOR_CONFIG.camera[cameraMode];
   const speedRatio = Math.min(Math.abs(speed) / SIMULATOR_CONFIG.vehicle.maxForwardSpeed, 1);
+  const accelerationRatio = MathUtils.clamp(
+    acceleration /
+      (acceleration >= 0
+        ? SIMULATOR_CONFIG.vehicle.acceleration
+        : SIMULATOR_CONFIG.vehicle.brakeStrength),
+    -1,
+    1,
+  );
+  rigState.localAcceleration = MathUtils.damp(
+    rigState.localAcceleration,
+    accelerationRatio,
+    preset.followDamping * 1.35,
+    delta,
+  );
 
   desiredPosition.set(
-    preset.localPositionOffset[0],
-    preset.localPositionOffset[1],
-    preset.localPositionOffset[2],
+    preset.localPositionOffset[0] +
+      preset.speedPositionOffset[0] * speedRatio +
+      preset.accelerationPositionOffset[0] * rigState.localAcceleration,
+    preset.localPositionOffset[1] +
+      preset.speedPositionOffset[1] * speedRatio +
+      preset.accelerationPositionOffset[1] * rigState.localAcceleration,
+    preset.localPositionOffset[2] +
+      preset.speedPositionOffset[2] * speedRatio +
+      preset.accelerationPositionOffset[2] * rigState.localAcceleration,
   );
   desiredLookAt.set(
     preset.localLookOffset[0],

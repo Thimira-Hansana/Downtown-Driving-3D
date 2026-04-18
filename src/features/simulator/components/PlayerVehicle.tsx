@@ -71,6 +71,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     const delta = Math.min(rawDelta, 1 / 30);
     const motion = motionRef.current;
     const previousPosition = previousPositionRef.current;
+    const previousSpeed = motion.speed;
 
     if ((!spawnReadyRef.current || resetVehicleRef.current) && terrain) {
       const spawn = findSpawnTransform(terrain, raycaster, SIMULATOR_CONFIG.vehicle);
@@ -168,6 +169,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
     }
 
     updateCameraRig({
+      acceleration: (motion.speed - previousSpeed) / Math.max(delta, 1e-3),
       camera: camera as PerspectiveCamera,
       cameraMode: motion.speed < -0.4 ? 'reverse' : cameraMode,
       delta,
