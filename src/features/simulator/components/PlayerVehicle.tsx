@@ -39,7 +39,10 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
   const cameraMode = useSimulatorStore((state) => state.cameraMode);
   const cycleCamera = useSimulatorStore((state) => state.cycleCamera);
+  const pauseMenuVisible = useSimulatorStore((state) => state.pauseMenuVisible);
+  const restartToken = useSimulatorStore((state) => state.restartToken);
   const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
+  const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
   const setMapBounds = useSimulatorStore((state) => state.setMapBounds);
   const setMovementBlocked = useSimulatorStore((state) => state.setMovementBlocked);
@@ -62,6 +65,14 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       setReady(false);
     };
   }, [setReady]);
+
+  useEffect(() => {
+    if (restartToken === 0) {
+      return;
+    }
+
+    resetVehicleRef.current = true;
+  }, [restartToken]);
 
   useFrame((state, rawDelta) => {
     const vehicle = vehicleRef.current;
@@ -116,6 +127,21 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       spawnReadyRef.current = true;
       resetVehicleRef.current = false;
       setReady(true);
+    }
+
+    if (pauseMenuVisible || settingsVisible) {
+      setMovementBlocked(false);
+      updateCameraRig({
+        acceleration: 0,
+        camera: camera as PerspectiveCamera,
+        cameraMode,
+        delta,
+        rigState: cameraRigStateRef.current,
+        speed: motion.speed,
+        vehicleId: selectedVehicleId,
+        vehicleRoot: vehicle,
+      });
+      return;
     }
 
     previousPosition.copy(motion.position);

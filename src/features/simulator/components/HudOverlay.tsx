@@ -41,6 +41,12 @@ interface VehicleStat {
   value: number;
 }
 
+interface PauseActionProps {
+  icon: JSX.Element;
+  label: string;
+  onClick: () => void;
+}
+
 const PAINT_SWATCHES = ['#1b6fff', '#d8383f', '#ff8a2a', '#ffd34d', '#2cb67d', '#f4f7fb', '#1f1f24'];
 
 const SETTINGS_TABS: SettingsTab[] = [
@@ -106,6 +112,17 @@ function ToggleRow({ description, label, onClick, value }: ToggleRowProps) {
   );
 }
 
+function PauseAction({ icon, label, onClick }: PauseActionProps) {
+  return (
+    <button type="button" className="pause-panel__action" onClick={onClick}>
+      <span className="pause-panel__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="pause-panel__label">{label}</span>
+    </button>
+  );
+}
+
 function cameraModeLabel(mode: (typeof CAMERA_MODES)[number]) {
   switch (mode) {
     case 'chase':
@@ -143,8 +160,11 @@ export function HudOverlay() {
   const gear = useSimulatorStore((state) => state.gear);
   const debugBlocked = useSimulatorStore((state) => state.debugBlocked);
   const instructionsVisible = useSimulatorStore((state) => state.instructionsVisible);
+  const pauseMenuVisible = useSimulatorStore((state) => state.pauseMenuVisible);
+  const requestRestart = useSimulatorStore((state) => state.requestRestart);
   const toggleInstructions = useSimulatorStore((state) => state.toggleInstructions);
   const setInstructionsVisible = useSimulatorStore((state) => state.setInstructionsVisible);
+  const setPauseMenuVisible = useSimulatorStore((state) => state.setPauseMenuVisible);
   const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
   const toggleSettings = useSimulatorStore((state) => state.toggleSettings);
   const setSettingsVisible = useSimulatorStore((state) => state.setSettingsVisible);
@@ -166,13 +186,18 @@ export function HudOverlay() {
   const vehicleStats = createVehicleStats(activeVehicle.id);
 
   useEffect(() => {
-    if (!settingsVisible) {
+    if (!settingsVisible && !pauseMenuVisible) {
       return;
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setSettingsVisible(false);
+        if (settingsVisible) {
+          setSettingsVisible(false);
+          return;
+        }
+
+        setPauseMenuVisible(false);
       }
     };
 
@@ -181,7 +206,7 @@ export function HudOverlay() {
     return () => {
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [setSettingsVisible, settingsVisible]);
+  }, [pauseMenuVisible, setPauseMenuVisible, setSettingsVisible, settingsVisible]);
 
   const applyHudPreset = (preset: 'balanced' | 'minimal' | 'training') => {
     if (preset === 'minimal') {
@@ -204,6 +229,24 @@ export function HudOverlay() {
   };
 
   const activeTabMeta = SETTINGS_TABS.find((tab) => tab.id === activeSettingsTab) ?? SETTINGS_TABS[0];
+  const openSettings = () => {
+    setPauseMenuVisible(false);
+    setSettingsVisible(true);
+  };
+
+  const togglePauseMenu = () => {
+    if (settingsVisible) {
+      setSettingsVisible(false);
+    }
+
+    setPauseMenuVisible(!pauseMenuVisible);
+  };
+
+  const handleRestart = () => {
+    requestRestart();
+    setPauseMenuVisible(false);
+    setSettingsVisible(false);
+  };
 
   let settingsContent: JSX.Element;
 
@@ -479,17 +522,72 @@ export function HudOverlay() {
         </div>
 
         <div className="hud__top-actions">
+          <div className="hud__action-row">
+            <button
+              type="button"
+              className={`hud__pause-toggle panel${pauseMenuVisible ? ' is-active' : ''}`}
+              onClick={togglePauseMenu}
+              aria-expanded={pauseMenuVisible}
+              aria-label={pauseMenuVisible ? 'Close pause menu' : 'Open pause menu'}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 5.5A1.5 1.5 0 0 1 8.5 4h1A1.5 1.5 0 0 1 11 5.5v13A1.5 1.5 0 0 1 9.5 20h-1A1.5 1.5 0 0 1 7 18.5v-13Zm6 0A1.5 1.5 0 0 1 14.5 4h1A1.5 1.5 0 0 1 17 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-1A1.5 1.5 0 0 1 13 18.5v-13Z" />
+              </svg>
+            </button>
+
+            {pauseMenuVisible ? (
+              <div className="pause-panel panel">
+                <div className="pause-panel__header">
+                  <p className="eyebrow">Game Paused</p>
+                  <strong>Session Menu</strong>
+                </div>
+
+                <div className="pause-panel__grid">
+                  <PauseAction
+                    label="Continue"
+                    onClick={() => setPauseMenuVisible(false)}
+                    icon={
+                      <svg viewBox="0 0 24 24">
+                        <path d="M8 6.5c0-1.2 1.32-1.93 2.34-1.3l7.22 4.5a1.53 1.53 0 0 1 0 2.6l-7.22 4.5A1.53 1.53 0 0 1 8 15.5v-9Z" />
+                      </svg>
+                    }
+                  />
+                  <PauseAction
+                    label="Restart"
+                    onClick={handleRestart}
+                    icon={
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 5a7 7 0 1 1-6.56 9.44 1 1 0 1 1 1.87-.7A5 5 0 1 0 8 8.1V11a1 1 0 0 1-1.7.7l-3-3a1 1 0 0 1 0-1.4l3-3A1 1 0 0 1 8 5v1.1A8.94 8.94 0 0 1 12 5Z" />
+                      </svg>
+                    }
+                  />
+                  <PauseAction
+                    label="Settings"
+                    onClick={openSettings}
+                    icon={
+                      <svg viewBox="0 0 24 24">
+                        <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.06 7.06 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.52a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z" />
+                      </svg>
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <button
             type="button"
             className={`hud__settings-toggle panel${settingsVisible ? ' is-active' : ''}`}
-            onClick={toggleSettings}
+            onClick={() => {
+              setPauseMenuVisible(false);
+              toggleSettings();
+            }}
             aria-expanded={settingsVisible}
             aria-label={settingsVisible ? 'Close settings' : 'Open settings'}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.06 7.06 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.52a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z" />
             </svg>
-            <span>Settings</span>
           </button>
 
           {settingsVisible ? (

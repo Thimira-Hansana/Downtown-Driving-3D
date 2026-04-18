@@ -35,7 +35,10 @@ interface SimulatorState {
   mapBounds: MapBounds | null;
   masterVolume: number;
   miniMapVisible: boolean;
+  pauseMenuVisible: boolean;
   playerPose: PlayerPose;
+  requestRestart: () => void;
+  restartToken: number;
   rpm: number;
   selectedVehicleId: string;
   setAudioChannel: (channel: AudioChannel, value: number) => void;
@@ -45,6 +48,7 @@ interface SimulatorState {
   setMapBounds: (payload: MapBounds) => void;
   setMiniMapVisible: (value: boolean) => void;
   setMovementBlocked: (value: boolean) => void;
+  setPauseMenuVisible: (value: boolean) => void;
   setPlayerPose: (payload: PlayerPose) => void;
   setReady: (value: boolean) => void;
   setSelectedVehicleId: (vehicleId: string) => void;
@@ -89,11 +93,17 @@ export const useSimulatorStore = create<SimulatorState>()(
       mapBounds: null,
       masterVolume: 0.9,
       miniMapVisible: true,
+      pauseMenuVisible: false,
       playerPose: {
         heading: 0,
         x: 0,
         z: 0,
       },
+      requestRestart: () =>
+        set((state) => ({
+          restartToken: state.restartToken + 1,
+        })),
+      restartToken: 0,
       rpm: 900,
       selectedVehicleId: DEFAULT_VEHICLE_ID,
       setAudioChannel: (channel, value) =>
@@ -107,6 +117,7 @@ export const useSimulatorStore = create<SimulatorState>()(
       setMapBounds: (payload) => set({ mapBounds: payload }),
       setMiniMapVisible: (value) => set({ miniMapVisible: value }),
       setMovementBlocked: (value) => set({ debugBlocked: value }),
+      setPauseMenuVisible: (value) => set({ pauseMenuVisible: value }),
       setPlayerPose: (payload) => set({ playerPose: payload }),
       setReady: (value) => set({ isReady: value }),
       setSelectedVehicleId: (vehicleId) => set({ selectedVehicleId: vehicleId }),
