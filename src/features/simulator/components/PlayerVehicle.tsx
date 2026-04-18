@@ -169,7 +169,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
     updateCameraRig({
       camera: camera as PerspectiveCamera,
-      cameraMode,
+      cameraMode: motion.speed < -0.4 ? 'reverse' : cameraMode,
       delta,
       rigState: cameraRigStateRef.current,
       speed: motion.speed,
