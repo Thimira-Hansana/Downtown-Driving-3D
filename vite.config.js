@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+const githubPagesBase = '/Downtown-Driving-3D/';
 export default defineConfig({
     assetsInclude: ['**/*.glb'],
-    base: '/Open-City-Driver-3D/',
+    base: githubPagesBase,
     build: {
         rollupOptions: {
             output: {
