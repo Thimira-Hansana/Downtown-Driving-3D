@@ -5,6 +5,7 @@ import { GarageVehiclePreview } from './GarageVehiclePreview';
 import { MiniMap } from './MiniMap';
 import { VehicleCardPreview } from './VehicleCardPreview';
 import { VEHICLE_OPTIONS } from '../../../shared/config/assets';
+import { DowntownDrivingLogo } from '../../../shared/components/DowntownDrivingLogo';
 
 interface DialGaugeProps {
   accent: string;
@@ -565,10 +566,8 @@ export function HudOverlay() {
   return (
     <div className="hud">
       <div className="hud__header">
-        <div>
-          <p className="eyebrow">Metropolis Drive</p>
-          <h1>3D Car Simulator</h1>
-          <p className="hud__subtitle">Prototype build in active development</p>
+        <div className="hud__brand">
+          <DowntownDrivingLogo variant="hud" />
         </div>
 
         <div className="hud__top-actions">
@@ -654,8 +653,6 @@ export function HudOverlay() {
                 <aside className="settings-panel__menu">
                   <div className="settings-panel__menu-header">
                     <p className="eyebrow">Simulator Menu</p>
-                    <strong>{activeTabMeta.label}</strong>
-                    <span>{activeTabMeta.description}</span>
                   </div>
 
                   <nav className="settings-panel__nav" aria-label="Settings sections">

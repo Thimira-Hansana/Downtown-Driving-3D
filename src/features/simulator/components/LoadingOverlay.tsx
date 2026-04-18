@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useProgress } from '@react-three/drei';
 import { ASSET_PATHS } from '../../../shared/config/assets';
+import { DowntownDrivingLogo } from '../../../shared/components/DowntownDrivingLogo';
 import { useSimulatorStore } from '../state/simulator.store';
 
 const SEGMENT_COUNT = 10;
@@ -8,11 +9,12 @@ const SEGMENT_COUNT = 10;
 export function LoadingOverlay() {
   const { active, progress } = useProgress();
   const isReady = useSimulatorStore((state) => state.isReady);
+  const settingsVisible = useSimulatorStore((state) => state.settingsVisible);
   const transitionLoadingLabel = useSimulatorStore((state) => state.transitionLoadingLabel);
   const transitionLoadingVisible = useSimulatorStore((state) => state.transitionLoadingVisible);
   const isTransitionScreen = transitionLoadingVisible && !active;
   const clampedProgress = Math.max(0, Math.min(isTransitionScreen ? 82 : progress, 100));
-  const isVisible = transitionLoadingVisible || active || !isReady;
+  const isVisible = transitionLoadingVisible || settingsVisible || active || !isReady;
   const activeSegments = Math.max(
     1,
     Math.min(SEGMENT_COUNT, Math.round((clampedProgress / 100) * SEGMENT_COUNT)),
@@ -73,30 +75,11 @@ export function LoadingOverlay() {
 
   return (
     <div className="loading-screen">
-      <div className="loading-screen__frame" aria-hidden="true">
-        <div className="loading-screen__frame-edge loading-screen__frame-edge--top">
-          <div className="loading-screen__frame-pill">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-        <div className="loading-screen__frame-edge loading-screen__frame-edge--bottom">
-          <div className="loading-screen__frame-pill">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      </div>
-
       <div className="loading-screen__grid" aria-hidden="true" />
 
       <div className="loading-screen__content">
+        <DowntownDrivingLogo variant="loading" className="loading-screen__brand" />
+
         <div
           className="loading-screen__bar-shell"
           style={{ ['--loading-progress' as string]: `${clampedProgress}%` }}
@@ -111,14 +94,12 @@ export function LoadingOverlay() {
           </div>
         </div>
 
-        <div className="loading-screen__wordmark">LOADING......</div>
-
-        <div className="loading-screen__readout">
-          <span>
-            {isTransitionScreen ? transitionLoadingLabel : active ? 'Streaming city systems' : 'Finalizing simulator'}
-          </span>
-          <strong>{Math.round(clampedProgress)}%</strong>
+        <div className="loading-screen__headline">
+          <div className="loading-screen__wordmark">LOADING......</div>
+          <strong className="loading-screen__progress-value">{Math.round(clampedProgress)}%</strong>
         </div>
+
+        <div className="loading-screen__readout" />
       </div>
     </div>
   );

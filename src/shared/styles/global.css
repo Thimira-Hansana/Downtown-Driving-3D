@@ -86,20 +86,41 @@ select {
   backdrop-filter: none;
 }
 
-.hud__header h1 {
-  margin: 4px 0 0;
-  font-size: clamp(1.4rem, 1.8vw, 2rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.hud__brand {
+  display: grid;
+  gap: 10px;
+  margin-top: -10px;
+  margin-left: -10px;
 }
 
 .hud__subtitle {
-  margin: 6px 0 0;
-  color: rgba(232, 243, 255, 0.82);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  margin: 0;
+  color: rgba(210, 233, 247, 0.72);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.brand-logo {
+  display: inline-block;
+}
+
+.brand-logo__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 24px rgba(42, 221, 255, 0.18))
+    drop-shadow(0 0 42px rgba(255, 189, 89, 0.08));
+}
+
+.brand-logo--hud {
+  width: min(190px, 24vw);
+}
+
+.brand-logo--loading {
+  width: min(460px, 62vw);
 }
 
 .hud__top-actions {
@@ -1489,89 +1510,6 @@ select {
   pointer-events: none;
 }
 
-.loading-screen__frame {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.loading-screen__frame-edge {
-  position: absolute;
-  left: 50%;
-  width: min(420px, 42vw);
-  height: 18px;
-  transform: translateX(-50%);
-  border: 2px solid rgba(41, 188, 237, 0.7);
-  border-radius: 999px;
-  background: rgba(5, 23, 35, 0.74);
-  box-shadow:
-    0 0 24px rgba(0, 233, 255, 0.16),
-    inset 0 0 16px rgba(0, 233, 255, 0.08);
-}
-
-.loading-screen__frame-edge--top {
-  top: 34px;
-}
-
-.loading-screen__frame-edge--bottom {
-  bottom: 34px;
-}
-
-.loading-screen__frame-edge--top::before,
-.loading-screen__frame-edge--top::after,
-.loading-screen__frame-edge--bottom::before,
-.loading-screen__frame-edge--bottom::after {
-  content: "";
-  position: relative;
-  display: block;
-  width: 82px;
-  height: 18px;
-  border: 2px solid rgba(41, 188, 237, 0.35);
-  background: rgba(10, 31, 45, 0.88);
-  top: -2px;
-}
-
-.loading-screen__frame-edge--top::before,
-.loading-screen__frame-edge--bottom::before {
-  float: left;
-  transform: skewX(-42deg);
-  transform-origin: right center;
-}
-
-.loading-screen__frame-edge--top::after,
-.loading-screen__frame-edge--bottom::after {
-  float: right;
-  transform: skewX(42deg);
-  transform-origin: left center;
-}
-
-.loading-screen__frame-pill {
-  position: absolute;
-  inset: 2px 30%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: inherit;
-  background: rgba(1, 10, 16, 0.96);
-}
-
-.loading-screen__frame-pill span {
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: #2df7ff;
-  box-shadow: 0 0 10px rgba(45, 247, 255, 0.65);
-}
-
-.loading-screen__frame-pill span:first-child,
-.loading-screen__frame-pill span:last-child {
-  width: 72px;
-  height: 6px;
-  border-radius: 999px;
-}
-
 .loading-screen__grid {
   position: absolute;
   width: min(420px, 52vw);
@@ -1589,9 +1527,13 @@ select {
   position: relative;
   display: grid;
   gap: 18px;
-  justify-items: start;
+  justify-items: center;
   width: min(420px, calc(100vw - 80px));
   padding: 18px 12px;
+}
+
+.loading-screen__brand {
+  margin-bottom: 6px;
 }
 
 .loading-screen__bar-shell {
@@ -1658,22 +1600,31 @@ select {
   text-shadow: 0 0 20px rgba(91, 238, 255, 0.2);
 }
 
+.loading-screen__headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 20px;
+  width: auto;
+  margin: 0 auto;
+}
+
+.loading-screen__progress-value {
+  color: #40f1ff;
+  font-size: clamp(1rem, 2.1vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(64, 241, 255, 0.18);
+}
+
 .loading-screen__readout {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  color: rgba(172, 231, 255, 0.74);
-  font-size: 0.76rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.loading-screen__readout strong {
-  color: #40f1ff;
-  font-size: 0.92rem;
-  letter-spacing: 0.18em;
+  min-height: 0;
 }
 
 .loading-screen__detail {
@@ -1707,6 +1658,14 @@ select {
   .hud__header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .brand-logo--hud {
+    width: min(170px, 30vw);
+  }
+
+  .brand-logo--loading {
+    width: min(380px, 72vw);
   }
 
   .hud__lower {
@@ -1809,20 +1768,6 @@ select {
     overflow: auto;
   }
 
-  .loading-screen__frame-edge {
-    width: min(320px, 56vw);
-  }
-
-  .loading-screen__frame-pill {
-    inset: 2px 24%;
-    gap: 6px;
-  }
-
-  .loading-screen__frame-pill span:first-child,
-  .loading-screen__frame-pill span:last-child {
-    width: 52px;
-  }
-
   .loading-screen__content {
     width: min(360px, calc(100vw - 56px));
   }
@@ -1836,6 +1781,14 @@ select {
 
   .hud__header {
     padding: 14px 16px;
+  }
+
+  .brand-logo--hud {
+    width: min(150px, 44vw);
+  }
+
+  .brand-logo--loading {
+    width: min(280px, 76vw);
   }
 
   .hud__settings-toggle {
@@ -1944,42 +1897,6 @@ select {
     inset: 10px;
   }
 
-  .loading-screen__frame-edge {
-    width: min(240px, 62vw);
-    height: 16px;
-  }
-
-  .loading-screen__frame-edge--top {
-    top: 20px;
-  }
-
-  .loading-screen__frame-edge--bottom {
-    bottom: 20px;
-  }
-
-  .loading-screen__frame-edge--top::before,
-  .loading-screen__frame-edge--top::after,
-  .loading-screen__frame-edge--bottom::before,
-  .loading-screen__frame-edge--bottom::after {
-    width: 42px;
-    height: 16px;
-  }
-
-  .loading-screen__frame-pill {
-    inset: 2px 18%;
-  }
-
-  .loading-screen__frame-pill span {
-    width: 6px;
-    height: 6px;
-  }
-
-  .loading-screen__frame-pill span:first-child,
-  .loading-screen__frame-pill span:last-child {
-    width: 34px;
-    height: 5px;
-  }
-
   .loading-screen__content {
     width: calc(100vw - 40px);
     gap: 14px;
@@ -1996,6 +1913,16 @@ select {
   .loading-screen__wordmark {
     font-size: 0.98rem;
     letter-spacing: 0.18em;
+  }
+
+  .loading-screen__headline {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .loading-screen__progress-value {
+    font-size: 0.96rem;
+    letter-spacing: 0.12em;
   }
 
   .loading-screen__readout {
