@@ -47,6 +47,7 @@ export function HudOverlay() {
         <div>
           <p className="eyebrow">Metropolis Drive</p>
           <h1>3D Car Simulator</h1>
+          <p className="hud__subtitle">Prototype build in active development</p>
         </div>
       </div>
 

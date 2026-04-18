@@ -92,6 +92,14 @@ select {
   text-transform: uppercase;
 }
 
+.hud__subtitle {
+  margin: 6px 0 0;
+  color: rgba(232, 243, 255, 0.82);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .eyebrow {
   margin: 0;
   color: #c3ebff;
