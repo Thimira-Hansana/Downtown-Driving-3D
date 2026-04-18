@@ -1,13 +1,18 @@
 import {
   AmbientLight,
+  Box3,
+  BufferGeometry,
   DirectionalLight,
   Group,
   HemisphereLight,
+  MathUtils,
   Mesh,
   MeshBasicMaterial,
-  OrthographicCamera,
   PlaneGeometry,
+  PerspectiveCamera,
   Scene,
+  Sphere,
+  Vector3,
   WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -22,6 +27,13 @@ let renderer: WebGLRenderer | null = null;
 const loader = new GLTFLoader();
 const baseSceneCache = new Map<string, Promise<Group>>();
 const thumbnailCache = new Map<string, Promise<string | null>>();
+let thumbnailRenderQueue = Promise.resolve();
+
+interface MeshBoundsEntry {
+  bounds: Box3;
+  center: Vector3;
+  diagonal: number;
+}
 
 function getRenderer() {
   if (renderer) {
@@ -71,13 +83,110 @@ function isSceneMesh(node: unknown): node is Mesh {
   return node instanceof Mesh;
 }
 
-function disposeGroup(root: Group) {
+function getMedian(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sortedValues = [...values].sort((a, b) => a - b);
+  const middleIndex = Math.floor(sortedValues.length / 2);
+
+  if (sortedValues.length % 2 === 0) {
+    return (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) * 0.5;
+  }
+
+  return sortedValues[middleIndex];
+}
+
+function isRenderableGeometry(geometry: BufferGeometry | undefined) {
+  return Boolean(geometry?.attributes.position && geometry.attributes.position.count > 0);
+}
+
+function isLikelyBackdropMesh(size: Vector3) {
+  const dimensions = [size.x, size.y, size.z].filter((value) => value > 0.001);
+
+  if (dimensions.length === 0) {
+    return true;
+  }
+
+  const smallestDimension = Math.min(...dimensions);
+  const largestDimension = Math.max(...dimensions);
+
+  return smallestDimension < 0.03 && largestDimension > 6;
+}
+
+function getVehicleBounds(root: Group) {
+  const fullBounds = new Box3().setFromObject(root);
+
+  if (fullBounds.isEmpty()) {
+    return fullBounds;
+  }
+
+  const meshBoundsEntries: MeshBoundsEntry[] = [];
+
+  root.updateWorldMatrix(true, true);
+  root.traverse((node) => {
+    if (!isSceneMesh(node) || !node.visible || !isRenderableGeometry(node.geometry)) {
+      return;
+    }
+
+    if (!node.geometry.boundingBox) {
+      node.geometry.computeBoundingBox();
+    }
+
+    const localBounds = node.geometry.boundingBox;
+
+    if (!localBounds || localBounds.isEmpty()) {
+      return;
+    }
+
+    const worldBounds = localBounds.clone().applyMatrix4(node.matrixWorld);
+    const size = worldBounds.getSize(new Vector3());
+
+    if (size.length() < 0.04 || isLikelyBackdropMesh(size)) {
+      return;
+    }
+
+    meshBoundsEntries.push({
+      bounds: worldBounds,
+      center: worldBounds.getCenter(new Vector3()),
+      diagonal: size.length(),
+    });
+  });
+
+  if (meshBoundsEntries.length === 0) {
+    return fullBounds;
+  }
+
+  const medianCenter = new Vector3(
+    getMedian(meshBoundsEntries.map((entry) => entry.center.x)),
+    getMedian(meshBoundsEntries.map((entry) => entry.center.y)),
+    getMedian(meshBoundsEntries.map((entry) => entry.center.z)),
+  );
+  const medianDistance = getMedian(meshBoundsEntries.map((entry) => entry.center.distanceTo(medianCenter)));
+  const medianDiagonal = getMedian(meshBoundsEntries.map((entry) => entry.diagonal));
+  const inclusionRadius = Math.max(medianDistance * 2.8 + medianDiagonal * 1.5, 1.75);
+  const clusteredEntries = meshBoundsEntries.filter(
+    (entry) => entry.center.distanceTo(medianCenter) <= inclusionRadius,
+  );
+
+  if (clusteredEntries.length === 0) {
+    return fullBounds;
+  }
+
+  const clusteredBounds = new Box3();
+  clusteredEntries.forEach((entry) => {
+    clusteredBounds.union(entry.bounds);
+  });
+
+  return clusteredBounds.isEmpty() ? fullBounds : clusteredBounds;
+}
+
+function disposeThumbnailMaterials(root: Group) {
   root.traverse((node) => {
     if (!isSceneMesh(node)) {
       return;
     }
-
-    node.geometry.dispose();
 
     if (Array.isArray(node.material)) {
       node.material.forEach((material) => material.dispose());
@@ -93,35 +202,67 @@ async function renderThumbnail(vehicleId: string, paintColor: string) {
     const baseScene = await loadBaseScene(vehicleId);
     const preparedVehicle = prepareVehicleModel(baseScene, paintColor);
     const scene = new Scene();
-    const camera = new OrthographicCamera(-3.2, 3.2, 1.8, -1.8, 0.1, 30);
+    const camera = new PerspectiveCamera(28, THUMBNAIL_WIDTH / THUMBNAIL_HEIGHT, 0.1, 30);
     const nextRenderer = getRenderer();
+    const bounds = new Box3();
+    const center = new Vector3();
+    const size = new Vector3();
+    const sphere = new Sphere();
+    const cameraDirection = new Vector3(0.92, 0.3, 1).normalize();
 
-    camera.position.set(4.8, 2.2, 5.8);
-    camera.lookAt(0.4, -0.15, 0);
+    preparedVehicle.position.set(0.65, -1.02, 0);
+    preparedVehicle.rotation.set(-0.04, -0.76, 0);
+    preparedVehicle.scale.setScalar(1.18);
 
-    preparedVehicle.position.set(0.55, -0.9, 0);
-    preparedVehicle.rotation.set(-0.05, -0.72, 0);
-    preparedVehicle.scale.setScalar(1.02);
+    bounds.copy(getVehicleBounds(preparedVehicle));
+    bounds.getCenter(center);
+    bounds.getSize(size);
+    bounds.getBoundingSphere(sphere);
 
-    scene.add(new AmbientLight('#dff5ff', 0.8));
-    scene.add(new HemisphereLight('#eef8ff', '#14324d', 1.1));
+    const target = new Vector3(
+      center.x + MathUtils.clamp(size.x * 0.08, 0.06, 0.38),
+      center.y + size.y * 0.08,
+      center.z,
+    );
+    const distance = Math.max(sphere.radius * 2.5, 4.4);
 
-    const keyLight = new DirectionalLight('#ffffff', 1.35);
-    keyLight.position.set(4, 5, 6);
+    camera.position.copy(target).addScaledVector(cameraDirection, distance);
+    camera.far = Math.max(40, distance * 8);
+    camera.updateProjectionMatrix();
+    camera.lookAt(target);
+
+    const floor = createFloorGlow();
+    floor.position.set(center.x + size.x * 0.04, bounds.min.y + 0.03, center.z);
+    floor.scale.set(
+      Math.max(size.x * 0.34, sphere.radius * 0.46, 1.4),
+      Math.max(size.z * 0.16, sphere.radius * 0.2, 0.8),
+      1,
+    );
+
+    scene.add(new AmbientLight('#edf8ff', 1));
+    scene.add(new HemisphereLight('#f3fbff', '#1b3650', 1.35));
+
+    const keyLight = new DirectionalLight('#ffffff', 1.65);
+    keyLight.position.set(5, 6, 6);
     scene.add(keyLight);
 
-    const rimLight = new DirectionalLight('#76dbff', 0.65);
+    const fillLight = new DirectionalLight('#bceeff', 0.95);
+    fillLight.position.set(-4, 4, 5);
+    scene.add(fillLight);
+
+    const rimLight = new DirectionalLight('#76dbff', 0.8);
     rimLight.position.set(-3, 4, -2);
     scene.add(rimLight);
 
-    scene.add(createFloorGlow());
+    scene.add(floor);
     scene.add(preparedVehicle);
 
+    nextRenderer.clear(true, true, true);
     nextRenderer.render(scene, camera);
     const dataUrl = nextRenderer.domElement.toDataURL('image/png');
 
     scene.remove(preparedVehicle);
-    disposeGroup(preparedVehicle);
+    disposeThumbnailMaterials(preparedVehicle);
 
     return dataUrl;
   } catch {
@@ -137,7 +278,17 @@ export function getVehicleThumbnail(vehicleId: string, paintColor: string) {
     return cachedThumbnail;
   }
 
-  const thumbnailPromise = renderThumbnail(vehicleId, paintColor);
+  const thumbnailPromise = thumbnailRenderQueue.then(() => renderThumbnail(vehicleId, paintColor)).then((result) => {
+    if (!result) {
+      thumbnailCache.delete(key);
+    }
+
+    return result;
+  });
+  thumbnailRenderQueue = thumbnailPromise.then(
+    () => undefined,
+    () => undefined,
+  );
   thumbnailCache.set(key, thumbnailPromise);
   return thumbnailPromise;
 }

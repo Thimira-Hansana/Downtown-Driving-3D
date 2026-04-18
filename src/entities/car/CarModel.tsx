@@ -12,6 +12,10 @@ interface CarModelProps {
   vehicleId?: string;
 }
 
+const VEHICLE_YAW_OFFSETS: Record<string, number> = {
+  '2013-jeep-grand-cherokee-srt8': Math.PI,
+};
+
 export function CarModel({ bodyLean, paintColor, vehicleId }: CarModelProps) {
   const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
   const vehicleColor = useSimulatorStore((state) => state.vehicleColor);
@@ -19,11 +23,12 @@ export function CarModel({ bodyLean, paintColor, vehicleId }: CarModelProps) {
   const resolvedPaintColor = paintColor ?? vehicleColor;
   const activeVehicle = getVehicleOptionById(resolvedVehicleId);
   const { scene } = useGLTF(activeVehicle?.assetPath ?? VEHICLE_OPTIONS[0].assetPath);
+  const modelYawOffset = SIMULATOR_CONFIG.vehicle.modelYawOffset + (VEHICLE_YAW_OFFSETS[resolvedVehicleId] ?? 0);
 
   const model = useMemo(() => prepareVehicleModel(scene as Group, resolvedPaintColor), [resolvedPaintColor, scene]);
 
   return (
-    <group rotation={[0, SIMULATOR_CONFIG.vehicle.modelYawOffset, bodyLean]}>
+    <group rotation={[0, modelYawOffset, bodyLean]}>
       <primitive object={model} />
     </group>
   );

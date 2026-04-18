@@ -5,6 +5,11 @@ const vehicleAssetModules = import.meta.glob('../../../Assets/car/*.glb', {
   import: 'default',
 }) as Record<string, string>;
 
+const EXCLUDED_VEHICLE_IDS = new Set([
+  'honda-rc181-hailwood-1966-www-vecarz-com',
+  'jeep-gladiator',
+]);
+
 export interface VehicleOption {
   assetPath: string;
   id: string;
@@ -43,13 +48,15 @@ function compareVehicleOptions(a: VehicleOption, b: VehicleOption) {
 export const VEHICLE_OPTIONS = Object.entries(vehicleAssetModules)
   .map(([modulePath, assetPath]) => {
     const fileName = modulePath.split('/').pop() ?? modulePath;
+    const id = toVehicleId(fileName);
 
     return {
       assetPath,
-      id: toVehicleId(fileName),
+      id,
       label: toVehicleLabel(fileName),
     };
   })
+  .filter((vehicle) => !EXCLUDED_VEHICLE_IDS.has(vehicle.id))
   .sort(compareVehicleOptions);
 
 export const DEFAULT_VEHICLE_ID =
