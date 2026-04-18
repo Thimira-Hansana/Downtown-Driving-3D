@@ -99,8 +99,8 @@ const FIRST_PERSON_CAMERA_OVERRIDES: Partial<
       localPositionOffset: [0, 0.89, 1.84],
     },
     driver: {
-      localLookOffset: [-0.18, 1.01, 14],
-      localPositionOffset: [-0.18, 1.01, 0.16],
+      localLookOffset: [0.22, 1.01, 14],
+      localPositionOffset: [0.22, 1.01, 0.16],
     },
   },
   '2012-dodge-charger-rt-sedan-4d': {
@@ -129,18 +129,18 @@ const FIRST_PERSON_CAMERA_OVERRIDES: Partial<
       localPositionOffset: [0, 1.1, 2.06],
     },
     driver: {
-      localLookOffset: [0.28, 1.22, 14],
-      localPositionOffset: [0.28, 1.22, 0.26],
+      localLookOffset: [0.1, 1.18, 14],
+      localPositionOffset: [0.34, 1.28, 0.42],
     },
   },
   '2019-jeep-cherokee': {
     bonnet: {
-      localLookOffset: [0, 1.04, 14],
-      localPositionOffset: [0, 1.06, 2],
+      localLookOffset: [0, 1.24, 14],
+      localPositionOffset: [0, 1.28, 2.26],
     },
     driver: {
-      localLookOffset: [0.27, 1.18, 14],
-      localPositionOffset: [0.27, 1.18, 0.24],
+      localLookOffset: [0.18, 1.18, 14],
+      localPositionOffset: [0.46, 1.34, 0.46],
     },
   },
   '2021-jeep-grand-commander-k8': {
@@ -169,8 +169,8 @@ const FIRST_PERSON_CAMERA_OVERRIDES: Partial<
       localPositionOffset: [0, 1.16, 2.04],
     },
     driver: {
-      localLookOffset: [0.3, 1.26, 14],
-      localPositionOffset: [0.3, 1.26, 0.28],
+      localLookOffset: [0.12, 1.24, 14],
+      localPositionOffset: [0.38, 1.36, 0.44],
     },
   },
   'ringbrothers-1966-chevrolet-chevelle-recoil': {
