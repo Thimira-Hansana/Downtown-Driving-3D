@@ -63,6 +63,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
     setTelemetry({
       gear: gearLabelFromIndex(motion.gearIndex),
+      isReversing: motion.speed < -0.2 || motion.gearIndex < 0,
       rpm: rpmFromDriveState(motion, SIMULATOR_CONFIG.vehicle),
       shiftIntensity: getShiftIntensity(motion),
       speedKph: Math.round(

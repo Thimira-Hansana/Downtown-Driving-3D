@@ -85,6 +85,7 @@ export function AudioManager() {
   const effectsVolume = useSimulatorStore((state) => state.effectsVolume);
   const engineVolume = useSimulatorStore((state) => state.engineVolume);
   const gear = useSimulatorStore((state) => state.gear);
+  const isReversing = useSimulatorStore((state) => state.isReversing);
   const isReady = useSimulatorStore((state) => state.isReady);
   const masterVolume = useSimulatorStore((state) => state.masterVolume);
   const rpm = useSimulatorStore((state) => state.rpm);
@@ -376,7 +377,7 @@ export function AudioManager() {
       return;
     }
 
-    const shouldPlayReverseBeep = gear === 'R';
+    const shouldPlayReverseBeep = gear === 'R' || isReversing;
     setAudioVolume(
       audio.reverseBeep,
       shouldPlayReverseBeep ? AUDIO_LEVELS.reverseBeep * masterVolume * effectsVolume : 0,
@@ -390,7 +391,7 @@ export function AudioManager() {
       audio.reverseBeep.pause();
       audio.reverseBeep.currentTime = 0;
     }
-  }, [audio, effectsVolume, gear, isReady, isUnlocked, masterVolume]);
+  }, [audio, effectsVolume, gear, isReady, isReversing, isUnlocked, masterVolume]);
 
   useEffect(() => {
     if (!isUnlocked) {

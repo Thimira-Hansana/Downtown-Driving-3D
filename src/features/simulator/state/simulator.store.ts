@@ -31,6 +31,7 @@ interface SimulatorState {
     throttle: number;
   };
   instructionsVisible: boolean;
+  isReversing: boolean;
   isReady: boolean;
   mapBounds: MapBounds | null;
   masterVolume: number;
@@ -57,7 +58,9 @@ interface SimulatorState {
   setSelectedVehicleId: (vehicleId: string) => void;
   setInstructionsVisible: (value: boolean) => void;
   setSettingsVisible: (value: boolean) => void;
-  setTelemetry: (payload: Partial<Pick<SimulatorState, 'rpm' | 'speedKph' | 'gear' | 'shiftIntensity'>>) => void;
+  setTelemetry: (
+    payload: Partial<Pick<SimulatorState, 'rpm' | 'speedKph' | 'gear' | 'shiftIntensity' | 'isReversing'>>,
+  ) => void;
   setVehicleColor: (value: string) => void;
   speedKph: number;
   effectsVolume: number;
@@ -94,6 +97,7 @@ export const useSimulatorStore = create<SimulatorState>()(
       engineVolume: 0.72,
       gear: '1',
       instructionsVisible: false,
+      isReversing: false,
       isReady: false,
       mapBounds: null,
       masterVolume: 0.9,
