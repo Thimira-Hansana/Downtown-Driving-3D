@@ -66,7 +66,6 @@ export const DEFAULT_VEHICLE_ID =
 
 export const ASSET_PATHS = {
   audio: {
-    acceleration: withBase('assets/audio/car-acceleration.mp3'),
     brake: withBase('assets/audio/_A_sudden_hard_car_brake_.mp3'),
     city: withBase('assets/audio/city-sounds.mp3'),
     crash: withBase('assets/audio/car-crash-sound.mp3'),

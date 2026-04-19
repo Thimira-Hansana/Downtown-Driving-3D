@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSET_PATHS } from '../../../shared/config/assets';
+import { getEngineLoopProfile } from '../lib/engine-audio';
 import { useSimulatorStore } from '../state/simulator.store';
 
 const AUDIO_LEVELS = {
@@ -15,15 +16,65 @@ function createLoopingAudio(src: string, volume: number) {
   const audio = new Audio(src);
   audio.loop = true;
   audio.preload = 'auto';
+  audio.muted = false;
+  (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
   audio.volume = volume;
+  audio.load();
+  return audio;
+}
+
+function createEngineLoopAudio(src: string) {
+  const audio = createLoopingAudio(src, 0);
+  audio.loop = false;
+  (
+    audio as HTMLAudioElement & {
+      mozPreservesPitch?: boolean;
+      preservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    }
+  ).mozPreservesPitch = false;
+  (
+    audio as HTMLAudioElement & {
+      mozPreservesPitch?: boolean;
+      preservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    }
+  ).preservesPitch = false;
+  (
+    audio as HTMLAudioElement & {
+      mozPreservesPitch?: boolean;
+      preservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    }
+  ).webkitPreservesPitch = false;
   return audio;
 }
 
 function createOneShotAudio(src: string, volume: number) {
   const audio = new Audio(src);
   audio.preload = 'auto';
+  audio.muted = false;
+  (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
   audio.volume = volume;
+  audio.load();
   return audio;
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(value, 1));
+}
+
+function setAudioVolume(audio: HTMLAudioElement, value: number) {
+  audio.volume = clamp01(value);
+}
+
+async function playIfPossible(audio: HTMLAudioElement) {
+  try {
+    await audio.play();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function AudioManager() {
@@ -36,19 +87,32 @@ export function AudioManager() {
   const isReady = useSimulatorStore((state) => state.isReady);
   const masterVolume = useSimulatorStore((state) => state.masterVolume);
   const rpm = useSimulatorStore((state) => state.rpm);
+  const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const brakeLockRef = useRef(false);
   const crashLockRef = useRef(false);
+  const engineLoopRef = useRef<{
+    playbackRate: number;
+    rafId: number | null;
+    targetVolume: number;
+    usingPrimary: boolean;
+  }>({
+    playbackRate: 1,
+    rafId: null,
+    targetVolume: 0,
+    usingPrimary: true,
+  });
   const longTurnStartRef = useRef<number | null>(null);
 
   const audio = useMemo(
     () => ({
-      acceleration: createLoopingAudio(ASSET_PATHS.audio.acceleration, 0),
       brake: createOneShotAudio(ASSET_PATHS.audio.brake, AUDIO_LEVELS.brake),
       city: createLoopingAudio(ASSET_PATHS.audio.city, AUDIO_LEVELS.city),
       crash: createOneShotAudio(ASSET_PATHS.audio.crash, AUDIO_LEVELS.crash),
       drift: createLoopingAudio(ASSET_PATHS.audio.drift, 0),
+      enginePrimary: createEngineLoopAudio(getEngineLoopProfile(selectedVehicleId).src),
+      engineSecondary: createEngineLoopAudio(getEngineLoopProfile(selectedVehicleId).src),
       horn: createOneShotAudio(ASSET_PATHS.audio.horn, AUDIO_LEVELS.horn),
       reverseBeep: createLoopingAudio(ASSET_PATHS.audio.reverseBeep, AUDIO_LEVELS.reverseBeep),
     }),
@@ -56,23 +120,69 @@ export function AudioManager() {
   );
 
   useEffect(() => {
+    const nextEngineSource = getEngineLoopProfile(selectedVehicleId).src;
+    const nextEngineUrl = new URL(nextEngineSource, window.location.href).href;
+
+    if (audio.enginePrimary.src !== nextEngineUrl || audio.engineSecondary.src !== nextEngineUrl) {
+      audio.enginePrimary.pause();
+      audio.engineSecondary.pause();
+      audio.enginePrimary.src = nextEngineUrl;
+      audio.engineSecondary.src = nextEngineUrl;
+      audio.enginePrimary.currentTime = 0;
+      audio.engineSecondary.currentTime = 0;
+      audio.enginePrimary.volume = 0;
+      audio.engineSecondary.volume = 0;
+      audio.enginePrimary.load();
+      audio.engineSecondary.load();
+      engineLoopRef.current.usingPrimary = true;
+    }
+
+    if (isUnlocked) {
+      void playIfPossible(audio.enginePrimary);
+    }
+  }, [audio, isUnlocked, selectedVehicleId]);
+
+  useEffect(() => {
     const unlockAudio = async () => {
       if (isUnlocked) {
         return;
       }
 
-      try {
-        await audio.city.play();
-        await audio.acceleration.play();
-        await audio.drift.play();
-        await audio.reverseBeep.play();
-        audio.acceleration.volume = 0;
-        audio.drift.volume = 0;
-        audio.reverseBeep.volume = 0;
-        setIsUnlocked(true);
-      } catch {
-        // Ignore autoplay denials until the next user gesture.
+      const [engineStarted, cityStarted, driftStarted, reverseStarted] = await Promise.all([
+        playIfPossible(audio.enginePrimary),
+        playIfPossible(audio.city),
+        playIfPossible(audio.drift),
+        playIfPossible(audio.reverseBeep),
+      ]);
+
+      if (driftStarted) {
+        setAudioVolume(audio.drift, 0);
       }
+
+      if (reverseStarted) {
+        setAudioVolume(audio.reverseBeep, 0);
+      }
+
+      if (engineStarted || cityStarted || driftStarted || reverseStarted) {
+        setIsUnlocked(true);
+      }
+    };
+
+    const handleDriveInputUnlock = async (event: KeyboardEvent) => {
+      const code = `${event.code || event.key}`.toLowerCase();
+      const isDriveKey =
+        code === 'arrowup' ||
+        code === 'arrowdown' ||
+        code === 'keyw' ||
+        code === 'keys' ||
+        code === 'w' ||
+        code === 's';
+
+      if (!isDriveKey) {
+        return;
+      }
+
+      await unlockAudio();
     };
 
     const handleHorn = async (event: KeyboardEvent) => {
@@ -98,49 +208,35 @@ export function AudioManager() {
 
     window.addEventListener('pointerdown', unlockAudio, { passive: true });
     window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('keydown', handleDriveInputUnlock);
     window.addEventListener('keydown', handleHorn);
 
     return () => {
       window.removeEventListener('pointerdown', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('keydown', handleDriveInputUnlock);
       window.removeEventListener('keydown', handleHorn);
     };
   }, [audio, isUnlocked]);
 
   useEffect(() => {
-    if (!isUnlocked || !isReady) {
-      return;
-    }
+    const profile = getEngineLoopProfile(selectedVehicleId);
+    const rpmRatio = Math.max(0, Math.min((rpm - 850) / 5950, 1));
+    const speedRatio = Math.max(0, Math.min(speedKph / 210, 1));
+    const throttleRatio = Math.abs(debugInput.throttle);
+    const playbackRate = profile.idleRate + (profile.maxRate - profile.idleRate) * rpmRatio;
+    const targetVolume =
+      Math.min(
+        profile.idleGain + throttleRatio * profile.throttleGain + speedRatio * profile.speedGain,
+        0.96,
+      ) *
+      masterVolume *
+      engineVolume;
 
-    if (gear === 'R') {
-      audio.acceleration.volume = 0;
-
-      if (!audio.acceleration.paused) {
-        audio.acceleration.pause();
-        audio.acceleration.currentTime = 0;
-      }
-
-      return;
-    }
-
-    const driveRatio = Math.min(speedKph / 140, 1);
-    const throttlePressure = Math.abs(debugInput.throttle);
-    const accelerationVolume =
-      speedKph > 0 || throttlePressure > 0 ? 0.08 + driveRatio * 0.28 + throttlePressure * 0.12 : 0;
-
-    audio.acceleration.volume = Math.min(accelerationVolume, 0.42) * masterVolume * engineVolume;
-    audio.acceleration.playbackRate = Math.min(0.7 + rpm / 5200, 1.9);
-
-    if ((speedKph > 0 || throttlePressure > 0) && audio.acceleration.paused) {
-      void audio.acceleration.play().catch(() => {});
-    }
-
-    if (speedKph === 0 && throttlePressure === 0 && !audio.acceleration.paused) {
-      audio.acceleration.pause();
-      audio.acceleration.currentTime = 0;
-    }
+    engineLoopRef.current.playbackRate = playbackRate;
+    engineLoopRef.current.targetVolume =
+      !isUnlocked || !isReady ? 0 : gear === 'R' ? targetVolume * profile.reverseGain : targetVolume;
   }, [
-    audio,
     debugInput.throttle,
     engineVolume,
     gear,
@@ -148,11 +244,86 @@ export function AudioManager() {
     isUnlocked,
     masterVolume,
     rpm,
+    selectedVehicleId,
     speedKph,
   ]);
 
   useEffect(() => {
-    if (!isUnlocked) {
+    if (!isUnlocked || !isReady) {
+      audio.enginePrimary.pause();
+      audio.engineSecondary.pause();
+      audio.enginePrimary.currentTime = 0;
+      audio.engineSecondary.currentTime = 0;
+      audio.enginePrimary.volume = 0;
+      audio.engineSecondary.volume = 0;
+      engineLoopRef.current.usingPrimary = true;
+      return;
+    }
+
+    const tick = () => {
+      const active = engineLoopRef.current.usingPrimary ? audio.enginePrimary : audio.engineSecondary;
+      const standby = engineLoopRef.current.usingPrimary ? audio.engineSecondary : audio.enginePrimary;
+      const targetVolume = engineLoopRef.current.targetVolume;
+      const playbackRate = engineLoopRef.current.playbackRate;
+      const duration = Number.isFinite(active.duration) ? active.duration : 0;
+      const crossfadeWindow = duration > 0 ? Math.min(0.28, duration * 0.2) : 0;
+
+      active.playbackRate = playbackRate;
+      standby.playbackRate = playbackRate;
+
+      if (active.paused) {
+        active.currentTime = 0;
+        void active.play().catch(() => {});
+      }
+
+      if (duration > crossfadeWindow && active.currentTime >= duration - crossfadeWindow) {
+        if (standby.paused) {
+          standby.currentTime = 0;
+          standby.volume = 0;
+          void standby.play().catch(() => {});
+        }
+
+        const blendProgress = clamp01(
+          (active.currentTime - (duration - crossfadeWindow)) / Math.max(crossfadeWindow, 0.001),
+        );
+        setAudioVolume(active, targetVolume * (1 - blendProgress));
+        setAudioVolume(standby, targetVolume * blendProgress);
+
+        if (blendProgress >= 0.98) {
+          active.pause();
+          active.currentTime = 0;
+          active.volume = 0;
+          setAudioVolume(standby, targetVolume);
+          engineLoopRef.current.usingPrimary = !engineLoopRef.current.usingPrimary;
+        }
+      } else {
+        setAudioVolume(active, targetVolume);
+
+        if (!standby.paused) {
+          standby.pause();
+          standby.currentTime = 0;
+        }
+
+        standby.volume = 0;
+      }
+
+      engineLoopRef.current.rafId = window.requestAnimationFrame(tick);
+    };
+
+    if (engineLoopRef.current.rafId == null) {
+      engineLoopRef.current.rafId = window.requestAnimationFrame(tick);
+    }
+
+    return () => {
+      if (engineLoopRef.current.rafId != null) {
+        window.cancelAnimationFrame(engineLoopRef.current.rafId);
+        engineLoopRef.current.rafId = null;
+      }
+    };
+  }, [audio, isReady, isUnlocked]);
+
+  useEffect(() => {
+    if (!isUnlocked || !isReady) {
       return;
     }
 
@@ -163,10 +334,10 @@ export function AudioManager() {
     if (audio.drift.paused) {
       void audio.drift.play().catch(() => {});
     }
-  }, [audio, isUnlocked]);
+  }, [audio, isReady, isUnlocked]);
 
   useEffect(() => {
-    audio.city.volume = AUDIO_LEVELS.city * masterVolume * ambienceVolume;
+    setAudioVolume(audio.city, AUDIO_LEVELS.city * masterVolume * ambienceVolume);
   }, [ambienceVolume, audio, masterVolume]);
 
   useEffect(() => {
@@ -175,8 +346,10 @@ export function AudioManager() {
     }
 
     const shouldPlayReverseBeep = gear === 'R';
-    audio.reverseBeep.volume =
-      shouldPlayReverseBeep ? AUDIO_LEVELS.reverseBeep * masterVolume * effectsVolume : 0;
+    setAudioVolume(
+      audio.reverseBeep,
+      shouldPlayReverseBeep ? AUDIO_LEVELS.reverseBeep * masterVolume * effectsVolume : 0,
+    );
 
     if (shouldPlayReverseBeep && audio.reverseBeep.paused) {
       void audio.reverseBeep.play().catch(() => {});
@@ -197,7 +370,7 @@ export function AudioManager() {
 
     if (isHardBrake && !brakeLockRef.current) {
       brakeLockRef.current = true;
-      audio.brake.volume = AUDIO_LEVELS.brake * masterVolume * effectsVolume;
+      setAudioVolume(audio.brake, AUDIO_LEVELS.brake * masterVolume * effectsVolume);
       audio.brake.currentTime = 0;
       void audio.brake.play().catch(() => {});
     }
@@ -228,11 +401,17 @@ export function AudioManager() {
     const sustainedTurnRatio = Math.min(Math.max((turnDuration - 900) / 300, 0), 1);
     const shouldDrift = sustainedTurnRatio > 0;
 
-    audio.drift.volume = shouldDrift
-      ? Math.min((0.12 + driftRatio * (0.16 + steerAmount * 0.22)) * sustainedTurnRatio, AUDIO_LEVELS.drift) *
-        masterVolume *
-        effectsVolume
-      : 0;
+    setAudioVolume(
+      audio.drift,
+      shouldDrift
+        ? Math.min(
+            (0.12 + driftRatio * (0.16 + steerAmount * 0.22)) * sustainedTurnRatio,
+            AUDIO_LEVELS.drift,
+          ) *
+            masterVolume *
+            effectsVolume
+        : 0,
+    );
     audio.drift.playbackRate = shouldDrift ? 0.92 + driftRatio * 0.35 : 0.9;
   }, [audio, debugInput.steer, effectsVolume, isReady, isUnlocked, masterVolume, speedKph]);
 
@@ -243,7 +422,7 @@ export function AudioManager() {
 
     if (debugBlocked && speedKph > 10 && !crashLockRef.current) {
       crashLockRef.current = true;
-      audio.crash.volume = AUDIO_LEVELS.crash * masterVolume * effectsVolume;
+      setAudioVolume(audio.crash, AUDIO_LEVELS.crash * masterVolume * effectsVolume);
       audio.crash.currentTime = 0;
       void audio.crash.play().catch(() => {});
     }
@@ -254,16 +433,17 @@ export function AudioManager() {
   }, [audio, debugBlocked, effectsVolume, isUnlocked, masterVolume, speedKph]);
 
   useEffect(() => {
-    audio.horn.volume = AUDIO_LEVELS.horn * masterVolume * effectsVolume;
+    setAudioVolume(audio.horn, AUDIO_LEVELS.horn * masterVolume * effectsVolume);
   }, [audio, effectsVolume, masterVolume]);
 
   useEffect(() => {
     return () => {
-      audio.acceleration.pause();
       audio.brake.pause();
       audio.city.pause();
       audio.crash.pause();
       audio.drift.pause();
+      audio.enginePrimary.pause();
+      audio.engineSecondary.pause();
       audio.horn.pause();
       audio.reverseBeep.pause();
     };
