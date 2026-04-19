@@ -15,8 +15,10 @@ import {
 import {
   createChassisQuaternion,
   createDriveState,
-  gearFromSpeed,
-  rpmFromSpeed,
+  gearLabelFromIndex,
+  getShiftIntensity,
+  isTopSpeedLocked,
+  rpmFromDriveState,
   stepDriveState,
 } from '../lib/vehicle-physics';
 import { useSimulatorStore } from '../state/simulator.store';
@@ -54,6 +56,20 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
   const setTransitionLoadingVisible = useSimulatorStore((state) => state.setTransitionLoadingVisible);
   const camera = useThree((state) => state.camera);
   const mapBoundsReadyRef = useRef(false);
+
+  const syncTelemetry = () => {
+    const motion = motionRef.current;
+    const topSpeedLocked = isTopSpeedLocked(motion, inputRef.current, SIMULATOR_CONFIG.vehicle);
+
+    setTelemetry({
+      gear: gearLabelFromIndex(motion.gearIndex),
+      rpm: rpmFromDriveState(motion, SIMULATOR_CONFIG.vehicle),
+      shiftIntensity: getShiftIntensity(motion),
+      speedKph: Math.round(
+        (topSpeedLocked ? SIMULATOR_CONFIG.vehicle.maxForwardSpeed : Math.abs(motion.speed)) * 3.6,
+      ),
+    });
+  };
 
   const inputRef = useDrivingInput({
     onCycleCamera: cycleCamera,
@@ -111,6 +127,9 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       motion.position.copy(spawn.position);
       motion.position.y += SIMULATOR_CONFIG.vehicle.rideHeight;
       motion.heading = spawn.heading;
+      motion.gearDwellTimer = 0;
+      motion.gearIndex = 1;
+      motion.shiftTimer = 0;
       motion.speed = 0;
       motion.steering = 0;
       steeringAngleRef.current = 0;
@@ -132,6 +151,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
       spawnReadyRef.current = true;
       resetVehicleRef.current = false;
       setReady(true);
+      syncTelemetry();
 
       if (shouldDismissTransition) {
         setTransitionLoadingVisible(false);
@@ -244,11 +264,7 @@ export function PlayerVehicle({ terrainRef }: PlayerVehicleProps) {
 
     if (telemetryTimerRef.current >= 0.08) {
       telemetryTimerRef.current = 0;
-      setTelemetry({
-        gear: gearFromSpeed(motion.speed),
-        rpm: rpmFromSpeed(motion.speed, SIMULATOR_CONFIG.vehicle),
-        speedKph: Math.round(Math.abs(motion.speed) * 3.6),
-      });
+      syncTelemetry();
     }
   });
 

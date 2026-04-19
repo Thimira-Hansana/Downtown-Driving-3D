@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useSimulatorStore } from '../state/simulator.store';
 
 interface DrivingInputSnapshot {
-  boost: boolean;
   brake: boolean;
   steer: number;
   throttle: number;
@@ -26,8 +25,6 @@ const CONTROL_KEYS = new Set([
   'KeyR',
   'KeyS',
   'KeyW',
-  'ShiftLeft',
-  'ShiftRight',
   'Space',
 ]);
 
@@ -36,7 +33,6 @@ const REVERSE_KEYS = new Set(['arrowdown', 'keys', 's']);
 const LEFT_KEYS = new Set(['arrowleft', 'keya', 'a']);
 const RIGHT_KEYS = new Set(['arrowright', 'keyd', 'd']);
 const BRAKE_KEYS = new Set(['space', ' ']);
-const BOOST_KEYS = new Set(['shiftleft', 'shiftright', 'shift']);
 const CAMERA_KEYS = new Set(['keyc', 'c']);
 const RESET_KEYS = new Set(['keyr', 'r']);
 const TOGGLE_KEYS = new Set(['keyh', 'h']);
@@ -48,7 +44,6 @@ export function useDrivingInput({
 }: UseDrivingInputOptions) {
   const pressedKeysRef = useRef<Set<string>>(new Set());
   const snapshotRef = useRef<DrivingInputSnapshot>({
-    boost: false,
     brake: false,
     steer: 0,
     throttle: 0,
@@ -65,7 +60,6 @@ export function useDrivingInput({
     const updateSnapshot = () => {
       if (inputBlocked) {
         snapshotRef.current = {
-          boost: false,
           brake: false,
           steer: 0,
           throttle: 0,
@@ -85,7 +79,6 @@ export function useDrivingInput({
       const steerRight = [...RIGHT_KEYS].some((key) => keys.has(key));
 
       snapshotRef.current = {
-        boost: [...BOOST_KEYS].some((key) => keys.has(key)),
         brake: [...BRAKE_KEYS].some((key) => keys.has(key)),
         steer: (steerRight ? 1 : 0) - (steerLeft ? 1 : 0),
         throttle: (throttleForward ? 1 : 0) - (throttleBackward ? 1 : 0),
@@ -164,7 +157,6 @@ export function useDrivingInput({
 
     pressedKeysRef.current.clear();
     snapshotRef.current = {
-      boost: false,
       brake: false,
       steer: 0,
       throttle: 0,

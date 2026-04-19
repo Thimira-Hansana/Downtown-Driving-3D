@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { CAMERA_MODES, type CameraMode } from '../config/simulator.config';
 import { DEFAULT_VEHICLE_ID } from '../../../shared/config/assets';
 
-type Gear = 'D' | 'N' | 'R';
+type Gear = '1' | '2' | '3' | '4' | '5' | '6' | 'N' | 'R';
 type AudioChannel = 'ambienceVolume' | 'effectsVolume' | 'engineVolume' | 'masterVolume';
 
 interface MapBounds {
@@ -41,6 +41,7 @@ interface SimulatorState {
   restartToken: number;
   rpm: number;
   selectedVehicleId: string;
+  shiftIntensity: number;
   setTransitionLoadingLabel: (value: string) => void;
   setTransitionLoadingVisible: (value: boolean) => void;
   setAudioChannel: (channel: AudioChannel, value: number) => void;
@@ -56,7 +57,7 @@ interface SimulatorState {
   setSelectedVehicleId: (vehicleId: string) => void;
   setInstructionsVisible: (value: boolean) => void;
   setSettingsVisible: (value: boolean) => void;
-  setTelemetry: (payload: Partial<Pick<SimulatorState, 'rpm' | 'speedKph' | 'gear'>>) => void;
+  setTelemetry: (payload: Partial<Pick<SimulatorState, 'rpm' | 'speedKph' | 'gear' | 'shiftIntensity'>>) => void;
   setVehicleColor: (value: string) => void;
   speedKph: number;
   effectsVolume: number;
@@ -91,7 +92,7 @@ export const useSimulatorStore = create<SimulatorState>()(
       },
       effectsVolume: 0.8,
       engineVolume: 0.72,
-      gear: 'N',
+      gear: '1',
       instructionsVisible: false,
       isReady: false,
       mapBounds: null,
@@ -110,6 +111,7 @@ export const useSimulatorStore = create<SimulatorState>()(
       restartToken: 0,
       rpm: 900,
       selectedVehicleId: DEFAULT_VEHICLE_ID,
+      shiftIntensity: 0,
       setTransitionLoadingLabel: (value) => set({ transitionLoadingLabel: value }),
       setTransitionLoadingVisible: (value) => set({ transitionLoadingVisible: value }),
       setAudioChannel: (channel, value) =>

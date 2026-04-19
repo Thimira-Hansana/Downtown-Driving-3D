@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MathUtils } from 'three';
 import { ASSET_PATHS } from '../../../shared/config/assets';
 import { getEngineLoopProfile } from '../lib/engine-audio';
 import { useSimulatorStore } from '../state/simulator.store';
@@ -88,6 +89,7 @@ export function AudioManager() {
   const masterVolume = useSimulatorStore((state) => state.masterVolume);
   const rpm = useSimulatorStore((state) => state.rpm);
   const selectedVehicleId = useSimulatorStore((state) => state.selectedVehicleId);
+  const shiftIntensity = useSimulatorStore((state) => state.shiftIntensity);
   const speedKph = useSimulatorStore((state) => state.speedKph);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const brakeLockRef = useRef(false);
@@ -95,11 +97,15 @@ export function AudioManager() {
   const engineLoopRef = useRef<{
     playbackRate: number;
     rafId: number | null;
+    smoothedPlaybackRate: number;
+    smoothedTargetVolume: number;
     targetVolume: number;
     usingPrimary: boolean;
   }>({
     playbackRate: 1,
     rafId: null,
+    smoothedPlaybackRate: 1,
+    smoothedTargetVolume: 0,
     targetVolume: 0,
     usingPrimary: true,
   });
@@ -134,6 +140,8 @@ export function AudioManager() {
       audio.engineSecondary.volume = 0;
       audio.enginePrimary.load();
       audio.engineSecondary.load();
+      engineLoopRef.current.smoothedPlaybackRate = 1;
+      engineLoopRef.current.smoothedTargetVolume = 0;
       engineLoopRef.current.usingPrimary = true;
     }
 
@@ -224,14 +232,18 @@ export function AudioManager() {
     const rpmRatio = Math.max(0, Math.min((rpm - 850) / 5950, 1));
     const speedRatio = Math.max(0, Math.min(speedKph / 210, 1));
     const throttleRatio = Math.abs(debugInput.throttle);
-    const playbackRate = profile.idleRate + (profile.maxRate - profile.idleRate) * rpmRatio;
+    const shiftRateDrop = 1 - shiftIntensity * 0.12;
+    const shiftVolumeDuck = 1 - shiftIntensity * 0.26;
+    const playbackRate =
+      (profile.idleRate + (profile.maxRate - profile.idleRate) * rpmRatio) * shiftRateDrop;
     const targetVolume =
       Math.min(
         profile.idleGain + throttleRatio * profile.throttleGain + speedRatio * profile.speedGain,
         0.96,
       ) *
       masterVolume *
-      engineVolume;
+      engineVolume *
+      shiftVolumeDuck;
 
     engineLoopRef.current.playbackRate = playbackRate;
     engineLoopRef.current.targetVolume =
@@ -245,6 +257,7 @@ export function AudioManager() {
     masterVolume,
     rpm,
     selectedVehicleId,
+    shiftIntensity,
     speedKph,
   ]);
 
@@ -256,6 +269,8 @@ export function AudioManager() {
       audio.engineSecondary.currentTime = 0;
       audio.enginePrimary.volume = 0;
       audio.engineSecondary.volume = 0;
+      engineLoopRef.current.smoothedPlaybackRate = 1;
+      engineLoopRef.current.smoothedTargetVolume = 0;
       engineLoopRef.current.usingPrimary = true;
       return;
     }
@@ -263,8 +278,24 @@ export function AudioManager() {
     const tick = () => {
       const active = engineLoopRef.current.usingPrimary ? audio.enginePrimary : audio.engineSecondary;
       const standby = engineLoopRef.current.usingPrimary ? audio.engineSecondary : audio.enginePrimary;
-      const targetVolume = engineLoopRef.current.targetVolume;
-      const playbackRate = engineLoopRef.current.playbackRate;
+      engineLoopRef.current.smoothedPlaybackRate = active.paused
+        ? engineLoopRef.current.playbackRate
+        : MathUtils.damp(
+            engineLoopRef.current.smoothedPlaybackRate,
+            engineLoopRef.current.playbackRate,
+            10,
+            1 / 60,
+          );
+      engineLoopRef.current.smoothedTargetVolume = active.paused
+        ? engineLoopRef.current.targetVolume
+        : MathUtils.damp(
+            engineLoopRef.current.smoothedTargetVolume,
+            engineLoopRef.current.targetVolume,
+            12,
+            1 / 60,
+          );
+      const targetVolume = engineLoopRef.current.smoothedTargetVolume;
+      const playbackRate = engineLoopRef.current.smoothedPlaybackRate;
       const duration = Number.isFinite(active.duration) ? active.duration : 0;
       const crossfadeWindow = duration > 0 ? Math.min(0.28, duration * 0.2) : 0;
 

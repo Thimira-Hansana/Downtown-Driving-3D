@@ -437,8 +437,8 @@ export function HudOverlay() {
             </div>
             <ul className="settings-panel__bindings">
               <li>
-                <span>Throttle / Reverse</span>
-                <strong>W/S or Arrow Up/Down</strong>
+                <span>Throttle</span>
+                <strong>W or Arrow Up</strong>
               </li>
               <li>
                 <span>Steer</span>
@@ -446,11 +446,11 @@ export function HudOverlay() {
               </li>
               <li>
                 <span>Brake</span>
-                <strong>Space</strong>
+                <strong>Space or S / Arrow Down</strong>
               </li>
               <li>
-                <span>Boost</span>
-                <strong>Shift</strong>
+                <span>Transmission</span>
+                <strong>Automatic 6-speed</strong>
               </li>
               <li>
                 <span>Horn</span>
@@ -744,26 +744,26 @@ export function HudOverlay() {
                 <span>{debugBlocked ? 'Obstacle detected' : 'Free drive'}</span>
               </div>
               <ul>
-                <li>
-                  <span>Throttle / Reverse</span>
-                  <strong>W/S or Arrow Up/Down</strong>
-                </li>
-                <li>
-                  <span>Steer</span>
-                  <strong>A/D or Arrow Left/Right</strong>
-                </li>
-                <li>
-                  <span>Brake</span>
-                  <strong>Space</strong>
-                </li>
-                <li>
-                  <span>Boost</span>
-                  <strong>Shift</strong>
-                </li>
-                <li>
-                  <span>Horn</span>
-                  <strong>F</strong>
-                </li>
+              <li>
+                <span>Throttle</span>
+                <strong>W or Arrow Up</strong>
+              </li>
+              <li>
+                <span>Steer</span>
+                <strong>A/D or Arrow Left/Right</strong>
+              </li>
+              <li>
+                <span>Brake</span>
+                <strong>Space or S / Arrow Down</strong>
+              </li>
+              <li>
+                <span>Transmission</span>
+                <strong>Automatic 6-speed</strong>
+              </li>
+              <li>
+                <span>Horn</span>
+                <strong>F</strong>
+              </li>
                 <li>
                   <span>Cycle camera</span>
                   <strong>C</strong>

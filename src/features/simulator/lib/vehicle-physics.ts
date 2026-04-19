@@ -5,25 +5,45 @@ import { type TerrainProbe } from './terrain';
 type VehicleConfig = typeof SIMULATOR_CONFIG.vehicle;
 
 export interface DrivingInput {
-  boost: boolean;
   brake: boolean;
   steer: number;
   throttle: number;
 }
 
 export interface DriveState {
+  autoShiftHoldTimer: number;
+  gearDwellTimer: number;
+  gearIndex: number;
   heading: number;
   position: Vector3;
+  shiftTimer: number;
   speed: number;
   steering: number;
 }
 
-type Gear = 'D' | 'N' | 'R';
+type Gear = '1' | '2' | '3' | '4' | '5' | '6' | 'N' | 'R';
+
+const FORWARD_GEAR_SPEED_RATIOS = [0.18, 0.3, 0.46, 0.62, 0.8, 1] as const;
+const FORWARD_GEAR_TORQUE_MULTIPLIERS = [1.46, 1.3, 1.2, 1.1, 1, 0.92] as const;
+const UPSHIFT_SPEED_TARGETS = [8, 15.5, 23, 31, 37.5, Number.POSITIVE_INFINITY] as const;
+const DOWNSHIFT_SPEED_TARGETS = [0, 6, 12, 20, 29, 33] as const;
+const MIN_UPSHIFT_DWELL_SECONDS = [1.15, 1.02, 0.94, 0.88, 0.68, 0] as const;
+const MAX_FORWARD_GEAR = FORWARD_GEAR_SPEED_RATIOS.length;
+const SHIFT_CUT_SECONDS = 0.17;
+const AUTO_SHIFT_STOP_SPEED = 0.4;
+const AUTO_SHIFT_HOLD_SECONDS = 0.34;
+const TOP_SPEED_LOCK_RATIO = 0.94;
+const IDLE_RPM = 900;
+const REDLINE_RPM = 6800;
 
 export function createDriveState(spawn = new Vector3(0, 1, 0)): DriveState {
   return {
+    autoShiftHoldTimer: 0,
+    gearDwellTimer: 0,
+    gearIndex: 1,
     heading: 0,
     position: spawn.clone(),
+    shiftTimer: 0,
     speed: 0,
     steering: 0,
   };
@@ -35,18 +55,49 @@ export function stepDriveState(
   delta: number,
   config: VehicleConfig,
 ) {
-  const boostMultiplier = input.boost ? config.boostMultiplier : 1;
   const targetSteer =
     input.steer *
     config.maxSteerAngle *
     MathUtils.lerp(1, 0.4, Math.min(Math.abs(state.speed) / config.maxForwardSpeed, 1));
 
   state.steering = MathUtils.damp(state.steering, targetSteer, config.steerResponse, delta);
+  state.autoShiftHoldTimer = Math.max(0, state.autoShiftHoldTimer - delta);
+  state.gearDwellTimer += delta;
+  state.shiftTimer = Math.max(0, state.shiftTimer - delta);
+  const speedAbs = Math.abs(state.speed);
+  const throttleAmount = Math.abs(input.throttle);
 
-  if (input.throttle > 0) {
-    state.speed += input.throttle * config.acceleration * boostMultiplier * delta;
-  } else if (input.throttle < 0) {
-    state.speed += input.throttle * config.reverseAcceleration * delta;
+  if (state.gearIndex > 0) {
+    const gearTopSpeed = getGearTopSpeed(state.gearIndex, config);
+    const gearRatio = MathUtils.clamp(speedAbs / Math.max(gearTopSpeed, 1e-3), 0, 1);
+    const availableTorque =
+      FORWARD_GEAR_TORQUE_MULTIPLIERS[state.gearIndex - 1] *
+      MathUtils.lerp(1, 0.42, Math.pow(gearRatio, 1.15));
+
+    if (input.throttle > 0) {
+      if (state.speed < -0.15) {
+        state.speed = moveToward(state.speed, 0, config.brakeStrength * 0.7 * delta);
+      } else if (state.shiftTimer === 0) {
+        state.speed += input.throttle * config.acceleration * Math.max(availableTorque, 0) * delta;
+      }
+    } else if (input.throttle < 0) {
+      state.speed = moveToward(state.speed, 0, config.brakeStrength * 0.65 * throttleAmount * delta);
+    }
+  } else if (state.gearIndex < 0) {
+    const reverseRatio = MathUtils.clamp(speedAbs / config.maxReverseSpeed, 0, 1);
+    const reverseTorque = 0.78 * (1 - Math.pow(reverseRatio, 1.5));
+
+    if (input.throttle < 0) {
+      if (state.speed > 0.15) {
+        state.speed = moveToward(state.speed, 0, config.brakeStrength * 0.7 * delta);
+      } else if (state.shiftTimer === 0) {
+        state.speed -= throttleAmount * config.reverseAcceleration * Math.max(reverseTorque, 0) * delta;
+      }
+    } else if (input.throttle > 0) {
+      state.speed = moveToward(state.speed, 0, config.brakeStrength * 0.65 * throttleAmount * delta);
+    }
+  } else if (throttleAmount > 0) {
+    state.speed = moveToward(state.speed, 0, config.brakeStrength * 0.22 * throttleAmount * delta);
   }
 
   if (input.brake) {
@@ -58,9 +109,15 @@ export function stepDriveState(
   state.speed = moveToward(state.speed, 0, resistance);
   state.speed = MathUtils.clamp(state.speed, -config.maxReverseSpeed, config.maxForwardSpeed);
 
+  if (isTopSpeedLocked(state, input, config)) {
+    state.speed = config.maxForwardSpeed;
+  }
+
   if (Math.abs(state.speed) < 0.05 && input.throttle === 0 && !input.brake) {
     state.speed = 0;
   }
+
+  updateAutomaticGear(state, input, config);
 
   state.heading -= state.steering * state.speed * config.turnGrip * delta;
 
@@ -101,21 +158,36 @@ export function createChassisQuaternion(
   return new Quaternion().setFromRotationMatrix(matrix);
 }
 
-export function gearFromSpeed(speed: number): Gear {
-  if (speed > 0.4) {
-    return 'D';
-  }
-
-  if (speed < -0.4) {
+export function gearLabelFromIndex(gearIndex: number): Gear {
+  if (gearIndex < 0) {
     return 'R';
   }
 
-  return 'N';
+  if (gearIndex === 0) {
+    return 'N';
+  }
+
+  return `${Math.max(1, Math.min(gearIndex, MAX_FORWARD_GEAR))}` as Exclude<Gear, 'N' | 'R'>;
 }
 
-export function rpmFromSpeed(speed: number, config: VehicleConfig) {
-  const ratio = Math.min(Math.abs(speed) / config.maxForwardSpeed, 1);
-  return Math.round(900 + ratio * 5900);
+export function rpmFromDriveState(state: DriveState, config: VehicleConfig) {
+  if (state.gearIndex === 0) {
+    return IDLE_RPM;
+  }
+
+  const maxSpeedForGear =
+    state.gearIndex < 0 ? config.maxReverseSpeed : getGearTopSpeed(state.gearIndex, config);
+  const speedRatio = MathUtils.clamp(Math.abs(state.speed) / Math.max(maxSpeedForGear, 1e-3), 0, 1);
+  const slipFloor = state.gearIndex === 1 && Math.abs(state.speed) > 0.5 ? 0.16 : 0;
+  const effectiveRatio = Math.max(speedRatio, slipFloor);
+  const baseRpm = IDLE_RPM + effectiveRatio * (REDLINE_RPM - IDLE_RPM);
+  const shiftBlend = getShiftIntensity(state);
+
+  return Math.round(MathUtils.lerp(baseRpm, Math.max(IDLE_RPM, baseRpm * 0.78), shiftBlend));
+}
+
+export function getShiftIntensity(state: DriveState) {
+  return MathUtils.clamp(state.shiftTimer / SHIFT_CUT_SECONDS, 0, 1);
 }
 
 function moveToward(value: number, target: number, maxDelta: number) {
@@ -124,4 +196,112 @@ function moveToward(value: number, target: number, maxDelta: number) {
   }
 
   return value + Math.sign(target - value) * maxDelta;
+}
+
+function getGearTopSpeed(gearIndex: number, config: VehicleConfig) {
+  const clampedIndex = Math.max(1, Math.min(gearIndex, MAX_FORWARD_GEAR));
+  return config.maxForwardSpeed * FORWARD_GEAR_SPEED_RATIOS[clampedIndex - 1];
+}
+
+function updateAutomaticGear(state: DriveState, input: DrivingInput, config: VehicleConfig) {
+  if (state.shiftTimer > 0 || state.autoShiftHoldTimer > 0) {
+    return;
+  }
+
+  const speedAbs = Math.abs(state.speed);
+  const throttleLoad = Math.max(0, input.throttle);
+
+  if (speedAbs <= AUTO_SHIFT_STOP_SPEED) {
+    if (input.throttle < -0.08) {
+      setGearIndex(state, -1);
+      return;
+    }
+
+    if (input.throttle > 0.05) {
+      setGearIndex(state, 1);
+      return;
+    }
+  }
+
+  if (state.gearIndex <= 0) {
+    return;
+  }
+
+  if (isTopSpeedLocked(state, input, config)) {
+    return;
+  }
+
+  const upshiftSpeed = getUpshiftSpeed(state.gearIndex, config, throttleLoad);
+  const downshiftSpeed = getDownshiftSpeed(state.gearIndex, config, throttleLoad);
+
+  const dwellSatisfied =
+    state.gearIndex < 1 ||
+    state.gearDwellTimer >= MIN_UPSHIFT_DWELL_SECONDS[Math.min(state.gearIndex - 1, MAX_FORWARD_GEAR - 1)];
+
+  const shouldForceTopGearUpshift =
+    state.gearIndex === MAX_FORWARD_GEAR - 1 &&
+    throttleLoad > 0.45 &&
+    speedAbs >= getGearTopSpeed(state.gearIndex, config) * 0.56;
+
+  if (
+    state.gearIndex < MAX_FORWARD_GEAR &&
+    dwellSatisfied &&
+    (speedAbs >= upshiftSpeed || shouldForceTopGearUpshift)
+  ) {
+    setGearIndex(state, state.gearIndex + 1);
+    return;
+  }
+
+  const shouldKickDown =
+    state.gearIndex > 1 &&
+    throttleLoad >= 0.78 &&
+    speedAbs <= getGearTopSpeed(state.gearIndex - 1, config) * 0.82;
+  const shouldDownshift = state.gearIndex > 1 && speedAbs <= downshiftSpeed;
+
+  if (state.gearIndex === MAX_FORWARD_GEAR && throttleLoad > 0.35 && speedAbs >= downshiftSpeed + 4) {
+    return;
+  }
+
+  if (shouldKickDown || shouldDownshift) {
+    setGearIndex(state, state.gearIndex - 1);
+  }
+}
+
+function setGearIndex(state: DriveState, nextGearIndex: number) {
+  if (nextGearIndex === state.gearIndex) {
+    return;
+  }
+
+  state.gearIndex = Math.max(-1, Math.min(MAX_FORWARD_GEAR, nextGearIndex));
+  state.autoShiftHoldTimer = AUTO_SHIFT_HOLD_SECONDS;
+  state.gearDwellTimer = 0;
+  state.shiftTimer = SHIFT_CUT_SECONDS;
+}
+
+function getUpshiftSpeed(gearIndex: number, config: VehicleConfig, throttleLoad: number) {
+  const gearSlot = Math.max(1, Math.min(gearIndex, MAX_FORWARD_GEAR)) - 1;
+  const currentTopSpeed = getGearTopSpeed(gearIndex, config);
+  const baseTarget = UPSHIFT_SPEED_TARGETS[gearSlot];
+  const throttleBonus = MathUtils.lerp(-1.5, 1.5, throttleLoad);
+  return Math.min(currentTopSpeed * 0.88, Math.max(0, baseTarget + throttleBonus));
+}
+
+function getDownshiftSpeed(gearIndex: number, config: VehicleConfig, throttleLoad: number) {
+  const gearSlot = Math.max(1, Math.min(gearIndex, MAX_FORWARD_GEAR)) - 1;
+  const previousTopSpeed = getGearTopSpeed(gearIndex - 1, config);
+  const baseTarget = DOWNSHIFT_SPEED_TARGETS[gearSlot];
+  const throttleBias = MathUtils.lerp(-1.2, 1.2, throttleLoad);
+  return Math.min(previousTopSpeed * 0.82, Math.max(0, baseTarget + throttleBias));
+}
+
+export function isTopSpeedLocked(
+  state: Pick<DriveState, 'gearIndex' | 'speed'>,
+  input: Pick<DrivingInput, 'throttle'>,
+  config: VehicleConfig,
+) {
+  return (
+    state.gearIndex === MAX_FORWARD_GEAR &&
+    input.throttle > 0.7 &&
+    state.speed >= config.maxForwardSpeed * TOP_SPEED_LOCK_RATIO
+  );
 }
