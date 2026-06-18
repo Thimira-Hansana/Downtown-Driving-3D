@@ -30,6 +30,22 @@ For this repository, the site path is:
 https://thimira-hansana.github.io/Open-City-Driver-3D/
 ```
 
+## Screenshots
+
+### Loading Screen
+
+![Loading screen](Assets/loading.png)
+
+### Gameplay Views
+
+![View 1](Assets/view1.png)
+![View 2](Assets/view2.png)
+![View 3](Assets/view3.png)
+![View 4](Assets/view4.png)
+![View 5](Assets/view5.png)
+![View 6](Assets/view6.png)
+![View 7](Assets/view7.png)
+
 ## Controls
 
 - `W / Arrow Up`: accelerate
