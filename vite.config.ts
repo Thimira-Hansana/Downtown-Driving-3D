@@ -1,11 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const githubPagesBase = '/Downtown-Driving-3D/';
-
 export default defineConfig({
   assetsInclude: ['**/*.glb'],
-  base: githubPagesBase,
+  base: '/', // Vaihdettu takaisin juureen Vercel-yhteensopivaksi
   build: {
     rollupOptions: {
       output: {
